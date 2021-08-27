@@ -13,5 +13,5 @@ jobs:
       with:
         python-root: '.'
         flake8-flags: '--ignore=E402, F401, W504, W503'
-        mypy-flags: ''
+        mypy-flags: 'skip-mypy'
         fail-on-isort: false
