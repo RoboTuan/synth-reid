@@ -54,6 +54,7 @@ class TestLeak(unittest.TestCase):
     def tearDownClass(cls) -> None:
 
         if os.path.isdir("./GTA_synthReid"):
+            print("Removing the dataset")
             shutil.rmtree("./GTA_synthReid")
 
     def test_TrainTest(self) -> None:
