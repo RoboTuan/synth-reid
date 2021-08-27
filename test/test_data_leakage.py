@@ -1,6 +1,8 @@
 import unittest
 from collections import defaultdict
 import torchreid
+import os
+import shutil
 from torchreid.utils import set_random_seed
 
 
@@ -15,8 +17,14 @@ class TestLeak(unittest.TestCase):
 
         set_random_seed(0)
 
+        if os.path.isdir("./GTA_synthReid"):
+            root_test = "./"
+        else:
+            root_test = '/mnt/data2/defonte_data/PersonReid_datasets/'
+        print("Root data folder: ", root_test)
+
         cls.datamanager = torchreid.data.ImageDataManager(
-            root='/mnt/data2/defonte_data/PersonReid_datasets/',
+            root=root_test,
             sources='gta_synthreid',
             targets='gta_synthreid',
             height=256,
@@ -29,7 +37,7 @@ class TestLeak(unittest.TestCase):
         )
 
         cls.datamanager_val = torchreid.data.ImageDataManager(
-            root='/mnt/data2/defonte_data/PersonReid_datasets/',
+            root=root_test,
             sources='gta_synthreid',
             targets='gta_synthreid',
             height=256,
@@ -41,6 +49,12 @@ class TestLeak(unittest.TestCase):
             val=True,
             relabel=False
         )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+
+        if os.path.isdir("./GTA_synthReid"):
+            shutil.rmtree("./GTA_synthReid")
 
     def test_TrainTest(self) -> None:
         train_loader = self.datamanager.train_loader
@@ -107,8 +121,8 @@ class TestLeak(unittest.TestCase):
         for pids_val in val_pids_all.values():
             for pids_test in test_pids_all.values():
                 self.assertEqual(bool(pids_val & pids_test), False)
-        print(val_pids_all)
-        print(test_pids_all)
+        # print(val_pids_all)
+        # print(test_pids_all)
 
 
 if __name__ == '__main__':
