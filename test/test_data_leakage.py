@@ -17,11 +17,11 @@ class TestLeak(unittest.TestCase):
 
         set_random_seed(0)
 
-        if os.path.isdir("./GTA_synthReid"):
-            root_test = "./"
+        if os.path.isdir('./GTA_synthReid'):
+            root_test = './'
         else:
             root_test = '/mnt/data2/defonte_data/PersonReid_datasets/'
-        print("Root data folder: ", root_test)
+        print(f"Root data folder: {root_test}")
 
         cls.datamanager = torchreid.data.ImageDataManager(
             root=root_test,
@@ -53,9 +53,9 @@ class TestLeak(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
 
-        if os.path.isdir("./GTA_synthReid"):
+        if os.path.isdir('./GTA_synthReid'):
             print("Removing the dataset")
-            shutil.rmtree("./GTA_synthReid")
+            shutil.rmtree('./GTA_synthReid')
 
     def test_TrainTest(self) -> None:
         train_loader = self.datamanager.train_loader
