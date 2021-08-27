@@ -13,12 +13,12 @@ gdown.download(url, output, quiet=False)
 
 print("Unzipping the dataset")
 with zipfile.ZipFile(output, 'r') as zip_ref:
-    zip_ref.extractall("./")
+    zip_ref.extractall('./')
 
 print("Removing the zipped dataset")
 if os.path.exists(output):
     os.remove(output)
 print("Removing the non necessary folders")
-if os.path.exists("./__MACOSX"):
-    shutil.rmtree("./__MACOSX")
+if os.path.exists('./__MACOSX'):
+    shutil.rmtree('./__MACOSX')
 
