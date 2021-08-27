@@ -12,6 +12,6 @@ jobs:
       uses: alexanderdamiani/pylinter@v1.3.0
       with:
         python-root: '.'
-        flake8-flags: '--ignore=[E402, F401, W504, W503]'
+        flake8-flags: '--ignore=E402,F401,W504,W503'
         mypy-flags: 'skip-mypy'
         fail-on-isort: false
