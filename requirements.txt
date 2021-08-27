@@ -14,5 +14,3 @@ flake8
 yapf
 isort==4.3.21
 imageio
-torch==1.10.0.dev20210818+cu102
-torchvision==0.11.0.dev20210818+cu102
