@@ -1,18 +1,22 @@
 [flake8]
 ignore =
     # At least two spaces before inline comment
-    E261,
+    #E261,
     # Line lengths are recommended to be no greater than 79 characters
-    E501,
+    #E501,
     # Missing whitespace around arithmetic operator 
-    E226,
+    #E226,
+    F401,
+    E402
     # Blank line contains whitespace
     W293,
     # Do not use bare 'except'
-    E722,
+    #E722,
     # Line break after binary operator
+    W503,
     W504,
     # isort found an import in the wrong position
     I001
-max-line-length = 79
+#max-line-length = 79
+max-line-length = 120
 exclude = __init__.py, build, torchreid/metrics/rank_cylib/
