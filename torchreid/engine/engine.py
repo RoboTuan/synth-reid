@@ -384,7 +384,7 @@ class Engine(object):
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
         rerank=False,
-        flip=True
+        flip=False
     ):
         batch_time = AverageMeter()
 
