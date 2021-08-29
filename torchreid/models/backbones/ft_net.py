@@ -83,14 +83,14 @@ class ft_net(nn.Module):
         if stride == 1:
             model_ft.layer4[0].downsample[0].stride = (1, 1)
             model_ft.layer4[0].conv2.stride = (1, 1)
-        # model_ft.global_avgpool = nn.AdaptiveAvgPool2d((1,1))
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        model_ft.global_avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        # model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(2048, class_num,
-                                     droprate, return_f=circle)
-        # self.model.classifier = ClassBlock(2048, class_num,
-        #                                    droprate, return_f = circle)
+        # self.classifier = ClassBlock(2048, class_num,
+        #                              droprate, return_f=circle)
+        self.model.classifier = ClassBlock(2048, class_num,
+                                           droprate, return_f=circle)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -103,6 +103,11 @@ class ft_net(nn.Module):
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
         x = x.view(x.size(0), x.size(1))
-        # x = self.model.classifier(x)
-        x = self.classifier(x)
+        x = self.model.classifier(x)
+        # x = self.classifier(x)
         return x
+
+
+def ft_net50(class_num, droprate=0.5, stride=2, circle=False):
+    model = ft_net(class_num, droprate, stride, circle)
+    return model
