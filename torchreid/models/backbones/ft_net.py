@@ -63,6 +63,10 @@ class ClassBlock(nn.Module):
 
     def forward(self, x):
         x = self.add_block(x)
+        # Return only the output of the second-last nn.Linear layer
+        # during evaluation
+        if not self.training:
+            return x
         if self.return_f:
             f = x
             x = self.classifier(x)
