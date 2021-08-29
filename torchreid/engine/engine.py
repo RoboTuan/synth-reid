@@ -132,6 +132,7 @@ class Engine(object):
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
         rerank=False,
+        eval_flip=False
     ):
         r"""A unified pipeline for training and evaluating a model.
 
@@ -176,6 +177,9 @@ class Engine(object):
             rerank (bool, optional):
                 uses person re-ranking (by Zhong et al. CVPR'17).
                 Default is False. This is only enabled when test_only=True.
+            eval_flip (bool, optional):
+                flip the image during evaluation time. Default if False.
+                This is only enabled when test_only=True.
         """
 
         if visrank and not test_only:
@@ -192,7 +196,8 @@ class Engine(object):
                 save_dir=save_dir,
                 use_metric_cuhk03=use_metric_cuhk03,
                 ranks=ranks,
-                rerank=rerank
+                rerank=rerank,
+                flip=eval_flip
             )
             return
 
@@ -222,7 +227,8 @@ class Engine(object):
                     visrank_topk=visrank_topk,
                     save_dir=save_dir,
                     use_metric_cuhk03=use_metric_cuhk03,
-                    ranks=ranks
+                    ranks=ranks,
+                    flip=eval_flip
                 )
                 self.save_model(self.epoch, rank1, save_dir)
 
@@ -235,7 +241,8 @@ class Engine(object):
                 visrank_topk=visrank_topk,
                 save_dir=save_dir,
                 use_metric_cuhk03=use_metric_cuhk03,
-                ranks=ranks
+                ranks=ranks,
+                flip=eval_flip
             )
             self.save_model(self.epoch, rank1, save_dir)
 
@@ -316,7 +323,8 @@ class Engine(object):
         save_dir='',
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
-        rerank=False
+        rerank=False,
+        flip=False
     ):
         r"""Tests model on target datasets.
 
@@ -361,7 +369,8 @@ class Engine(object):
                 save_dir=save_dir,
                 use_metric_cuhk03=use_metric_cuhk03,
                 ranks=ranks,
-                rerank=rerank
+                rerank=rerank,
+                flip=flip
             )
 
             if self.writer is not None:
@@ -402,17 +411,17 @@ class Engine(object):
                 if self.use_gpu:
                     imgs = imgs.cuda()
                 end = time.time()
+                features = self.extract_features(imgs)
+
                 if flip:
-                    ff = torch.FloatTensor(imgs.shape[0], 2048 * 6).zero_().cuda()
-                    for i in range(2):
-                        if(i == 1):
-                            imgs = fliplr(imgs)
-                        features = self.extract_features(imgs)
-                        ff += features
-                    features = ff
-                else:
-                    features = self.extract_features(imgs)
+                    imgs = fliplr(imgs)
+                    features_flip = self.extract_features(imgs)
+                    # print(features)
+                    # print(features_flip)
+                    features += features_flip
+                    # print(features)
                     # print(features.shape)
+                # print(features)
                 # print(features.shape)
                 batch_time.update(time.time() - end)
                 features = features.cpu().clone()
@@ -489,6 +498,9 @@ class Engine(object):
 
     def extract_features(self, input):
         return self.model(input)
+
+    # def get_output_shape(self, image_dim):
+    #     return self.model(torch.rand(*(image_dim))).data.shape
 
     def parse_data_for_train(self, data):
         imgs = data['img']

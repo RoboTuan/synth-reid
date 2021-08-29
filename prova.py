@@ -121,5 +121,6 @@ engine.run(
     max_epoch=11,
     eval_freq=4,
     print_freq=100,
+    eval_flip=True
     # test_only=True
 )
