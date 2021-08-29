@@ -55,7 +55,7 @@ def init_image_dataset(name, **kwargs):
 
 def init_video_dataset(name, **kwargs):
     # Setting random seed
-    set_random_seed(0)
+    set_random_seed()
 
     """Initializes a video dataset."""
     avai_datasets = list(__video_datasets.keys())

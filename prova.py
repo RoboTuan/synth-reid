@@ -81,11 +81,11 @@ model = torchreid.models.build_model(
 )
 
 
-# print(model)
+print(model)
 # model= nn.DataParallel(model)
 
-model.classifier = nn.Sequential()
-load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-10')
+# model.classifier = nn.Sequential()
+# load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-10')
 model = model.cuda()
 # sys.exit()
 
@@ -111,7 +111,7 @@ engine = torchreid.engine.ImageSoftmaxEngine(
     optimizer=optimizer,
     scheduler=scheduler,
     label_smooth=True,
-    # val=True
+    val=True
 )
 
 # sys.exit()
@@ -121,5 +121,5 @@ engine.run(
     max_epoch=11,
     eval_freq=4,
     print_freq=100,
-    test_only=True
+    # test_only=True
 )

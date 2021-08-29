@@ -15,7 +15,7 @@ class TestLeak(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
 
-        set_random_seed(0)
+        set_random_seed()
 
         if os.path.isdir('./GTA_synthReid'):
             root_test = './'
