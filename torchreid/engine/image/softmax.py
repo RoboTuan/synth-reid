@@ -85,7 +85,15 @@ class ImageSoftmaxEngine(Engine):
             pids = pids.cuda()
 
         outputs = self.model(imgs)
-        loss = self.compute_loss(self.criterion, outputs, pids)
+
+        # print(len(outputs))
+        if isinstance(outputs, (tuple, list)):
+            loss = self.compute_loss(self.criterion, outputs[0], pids)
+            for i in range(len(outputs) - 1):
+                loss += self.compute_loss(self.criterion, outputs[i + 1], pids)
+        else:
+            loss = self.compute_loss(self.criterion, outputs, pids)
+        # print(loss)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -95,5 +103,8 @@ class ImageSoftmaxEngine(Engine):
             'loss': loss.item(),
             'acc': metrics.accuracy(outputs, pids)[0].item()
         }
+
+        # import sys
+        # sys.exit()
 
         return loss_summary

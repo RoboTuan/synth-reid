@@ -41,10 +41,17 @@ class CrossEntropyLoss(nn.Module):
             targets (torch.LongTensor): ground truth labels with shape (batch_size).
                 Each position contains the label index.
         """
+        # print(len(inputs))
         log_probs = self.logsoftmax(inputs)
+        # print(len(log_probs))
         zeros = torch.zeros(log_probs.size())
         targets = zeros.scatter_(1, targets.unsqueeze(1).data.cpu(), 1)
         if self.use_gpu:
             targets = targets.cuda()
         targets = (1 - self.eps) * targets + self.eps / self.num_classes
+        # cs = nn.CrossEntropyLoss()
+        # print(targets.shape)
+        # print(targets)
+        # print(cs(inputs, targets))
+        # print((-targets * log_probs).mean(0))
         return (-targets * log_probs).mean(0).sum()
