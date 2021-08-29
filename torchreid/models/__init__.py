@@ -1,11 +1,13 @@
 from __future__ import absolute_import
+# from torchreid.models.backbones.ft_net import ft_net
 import torch
 
 from .backbones import *
-from .models import *
+#from .models import *
 
 __model_factory = {
     # image classification models
+    'ft_net50' : ft_net50,
     'resnet18': resnet18,
     'resnet34': resnet34,
     'resnet50': resnet50,
@@ -70,8 +72,11 @@ def show_avai_models():
     print(list(__model_factory.keys()))
 
 
+# def build_model(
+#     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
+# ):
 def build_model(
-    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
+    name, num_classes, loss='softmax', pretrained=True, use_gpu=True,
 ):
     """A function wrapper for building a model.
 
@@ -96,8 +101,8 @@ def build_model(
         raise KeyError(
             'Unknown model: {}. Must be one of {}'.format(name, avai_models)
         )
-    if ft_net :
-        return models.ft_net(num_classes)
+    # if ft_net :
+    #     return models.ft_net(num_classes)
     return __model_factory[name](
         num_classes=num_classes,
         loss=loss,
