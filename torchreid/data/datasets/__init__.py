@@ -40,7 +40,9 @@ __video_datasets = {
 def init_image_dataset(name, **kwargs):
     """Initializes an image dataset."""
     # Setting random seed
-    set_random_seed(0)
+    set_random_seed()
+    # np.random.seed(10)
+    # random.seed(10)
 
     avai_datasets = list(__image_datasets.keys())
     if name not in avai_datasets:

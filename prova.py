@@ -9,7 +9,7 @@ import sys
 import numpy as np
 import random
 
-set_random_seed(0)
+set_random_seed()
 # np.random.seed(10)
 # random.seed(10)
 
@@ -71,21 +71,21 @@ datamanager = torchreid.data.ImageDataManager(
 #     print(data['impath'][:5])
 #     break
 
-sys.exit()
+# sys.exit()
 
 model = torchreid.models.build_model(
     name='pcb_p6',
     num_classes=datamanager.num_train_pids,
     loss='softmax',
-    # ft_net=True,
     pretrained=True
 )
 
-# model.classifier.classifier = nn.Sequential()
 
-print(model)
+# print(model)
 # model= nn.DataParallel(model)
-load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-5')
+
+model.classifier = nn.Sequential()
+load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-10')
 model = model.cuda()
 # sys.exit()
 
@@ -111,15 +111,15 @@ engine = torchreid.engine.ImageSoftmaxEngine(
     optimizer=optimizer,
     scheduler=scheduler,
     label_smooth=True,
-    val=True
+    # val=True
 )
 
 # sys.exit()
 
 engine.run(
     save_dir='log/pcb_p6',
-    max_epoch=5,
-    eval_freq=1,
+    max_epoch=11,
+    eval_freq=4,
     print_freq=100,
     test_only=True
 )
