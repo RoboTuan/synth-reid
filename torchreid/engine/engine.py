@@ -344,9 +344,9 @@ class Engine(object):
             print('##### Evaluating {} ({}) #####'.format(name, domain))
             if self.val:
                 query_loader = self.val_loader[name]['query']
-                print(len(query_loader))
+                # print(len(query_loader))
                 gallery_loader = self.val_loader[name]['gallery']
-                print(len(gallery_loader))
+                # print(len(gallery_loader))
             else:
                 query_loader = self.test_loader[name]['query']
                 gallery_loader = self.test_loader[name]['gallery']
@@ -384,7 +384,7 @@ class Engine(object):
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
         rerank=False,
-        flip=False
+        flip=True
     ):
         batch_time = AverageMeter()
 
@@ -403,7 +403,7 @@ class Engine(object):
                     imgs = imgs.cuda()
                 end = time.time()
                 if flip:
-                    ff = torch.FloatTensor(imgs.shape[0], 2048).zero_().cuda()
+                    ff = torch.FloatTensor(imgs.shape[0], 2048 * 6).zero_().cuda()
                     for i in range(2):
                         if(i == 1):
                             imgs = fliplr(imgs)
@@ -412,6 +412,7 @@ class Engine(object):
                     features = ff
                 else:
                     features = self.extract_features(imgs)
+                    # print(features.shape)
                 # print(features.shape)
                 batch_time.update(time.time() - end)
                 features = features.cpu().clone()
