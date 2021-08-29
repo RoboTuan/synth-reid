@@ -1,23 +1,14 @@
-"""
-Adapted from: https://github.com/michuanhaohao/reid-strong-baseline
-"""
-
 import glob
 import re
 from collections import defaultdict
-# from collections import Counter
 import random
 
 import os.path as osp
-import sys
 from typing import Tuple, Union
 import numpy as np
 
+from torchreid.utils.tools import set_random_seed
 from ..dataset import ImageDataset
-
-# TODO:set global seed for reproducibility
-np.random.seed(10)
-random.seed(10)
 
 
 class GTA_synthReid(ImageDataset):
@@ -27,10 +18,11 @@ class GTA_synthReid(ImageDataset):
 
     dataset_dir = 'GTA_synthReid'
 
-    # def __init__(self, root='/mnt/data2/defonte_data/PersonReid_datasets/', verbose=False, **kwargs) -> None:
     # The option relabel is used only for testing purposes
     def __init__(self, root='/mnt/data2/defonte_data/PersonReid_datasets/', val=False, relabel=True, **kwargs) -> None:
         # super(GTA_synthReid, self).__init__()
+
+        # set_random_seed(0)
         self.dataset_dir = osp.join(root, self.dataset_dir)
         self.train_val_dir = osp.join(self.dataset_dir, 'bounding_box_train')
         self.query_dir = osp.join(self.dataset_dir, 'query')
@@ -66,23 +58,10 @@ class GTA_synthReid(ImageDataset):
             val_query = self._prepare_val()
             self.val_query = val_query
 
-            # self.num_train_val_pids, self.num_train_val_imgs, self.num_train_val_cams =
-            #                                                   self.get_imagedata_info(self.train_val)
-            # self.num_train_pids, self.num_train_imgs, self.num_train_cams = self.get_imagedata_info(self.train)
-            # self.num_val_pids, self.num_val_imgs, self.num_val_cams = self.get_imagedata_info(self.val_gallery)
-            # self.num_val_query_pids, self.num_val_query_imgs, self.num_val_query_cams =
-            #                                                   self.get_imagedata_info(self.val_query)
-            # self.num_query_pids, self.num_query_imgs, self.num_query_cams = self.get_imagedata_info(self.query)
-            # self.num_gallery_pids, self.num_gallery_imgs, self.num_gallery_cams =
-            #                                                   self.get_imagedata_info(self.gallery)
             super(GTA_synthReid, self).__init__(train, query, gallery, self.val, val_query, val_gallery, **kwargs)
 
         else:
             super(GTA_synthReid, self).__init__(train_val, query, gallery, **kwargs)
-
-        # if verbose:
-        #     print("=> GTA_synthReid loaded")
-        #     self.print_dataset_statistics()
 
     def _check_before_run(self) -> None:
         """Check if all files are available before going deeper"""

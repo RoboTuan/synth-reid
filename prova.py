@@ -2,15 +2,16 @@
 import torchreid
 import torch.nn as nn
 # import torch
-# from torchreid.utils import set_random_seed, load_pretrained_weights
-from torchreid.utils import load_pretrained_weights
+from torchreid.utils import set_random_seed, load_pretrained_weights
+# from torchreid.utils import load_pretrained_weights
 import sys
 
 import numpy as np
 import random
 
-np.random.seed(10)
-random.seed(10)
+set_random_seed(0)
+# np.random.seed(10)
+# random.seed(10)
 
 
 # set_random_seed(0)
@@ -70,7 +71,7 @@ datamanager = torchreid.data.ImageDataManager(
 #     print(data['impath'][:5])
 #     break
 
-# sys.exit()
+sys.exit()
 
 model = torchreid.models.build_model(
     name='pcb_p6',
