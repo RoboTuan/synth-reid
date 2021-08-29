@@ -29,7 +29,7 @@ def weights_init_classifier(m):
 class ClassBlock(nn.Module):
     def __init__(self,
                  input_dim,
-                 class_num,
+                 num_classes,
                  droprate,
                  relu=False,
                  bnorm=True,
@@ -54,7 +54,7 @@ class ClassBlock(nn.Module):
         add_block.apply(weights_init_kaiming)
 
         classifier = []
-        classifier += [nn.Linear(num_bottleneck, class_num)]
+        classifier += [nn.Linear(num_bottleneck, num_classes)]
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
 
@@ -75,9 +75,9 @@ class ClassBlock(nn.Module):
 # Define the ResNet50-based Model
 class ft_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+    def __init__(self, num_classes, loss='softmax', pretrained=True, droprate=0.5, stride=2, circle=False, **kwargs):
         super(ft_net, self).__init__()
-        model_ft = backbones.resnet50(pretrained=True, num_classes=class_num)
+        model_ft = backbones.resnet50(pretrained=pretrained, loss=loss, num_classes=num_classes, **kwargs)
         # print(model_ft)
         # avg pooling to global pooling
         if stride == 1:
@@ -89,7 +89,7 @@ class ft_net(nn.Module):
         self.circle = circle
         # self.classifier = ClassBlock(2048, class_num,
         #                              droprate, return_f=circle)
-        self.model.classifier = ClassBlock(2048, class_num,
+        self.model.classifier = ClassBlock(2048, num_classes,
                                            droprate, return_f=circle)
 
     def forward(self, x):
@@ -101,13 +101,13 @@ class ft_net(nn.Module):
         x = self.model.layer2(x)
         x = self.model.layer3(x)
         x = self.model.layer4(x)
-        x = self.model.avgpool(x)
+        x = self.model.global_avgpool(x)
         x = x.view(x.size(0), x.size(1))
         x = self.model.classifier(x)
         # x = self.classifier(x)
         return x
 
 
-def ft_net50(class_num, droprate=0.5, stride=2, circle=False):
-    model = ft_net(class_num, droprate, stride, circle)
+def ft_net50(num_classes, loss, pretrained=True, droprate=0.5, stride=2, circle=False, **kwargs):
+    model = ft_net(num_classes, loss, pretrained, droprate, stride, circle, **kwargs)
     return model
