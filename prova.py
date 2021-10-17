@@ -37,8 +37,8 @@ datamanager = torchreid.data.ImageDataManager(
     root='/mnt/data2/defonte_data/PersonReid_datasets/',
     sources='gta_synthreid',
     targets='gta_synthreid',
-    height=384,
-    width=192,
+    height=256,
+    width=128,
     batch_size_train=32,
     batch_size_test=100,
     # transforms=['random_flip', 'random_crop'],
@@ -74,7 +74,7 @@ datamanager = torchreid.data.ImageDataManager(
 # sys.exit()
 
 model = torchreid.models.build_model(
-    name='pcb_p6',
+    name='resnet50',
     num_classes=datamanager.num_train_pids,
     loss='softmax',
     pretrained=True
@@ -118,7 +118,7 @@ engine = torchreid.engine.ImageSoftmaxEngine(
 
 engine.run(
     save_dir='log/pcb_p6',
-    max_epoch=11,
+    max_epoch=1,
     eval_freq=4,
     print_freq=100,
     eval_flip=True
