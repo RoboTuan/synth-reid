@@ -1,6 +1,6 @@
 from torch.nn import init
 import torch.nn as nn
-from torchreid.models import backbones
+from .resnet import resnet50
 
 
 def weights_init_kaiming(m):
@@ -81,7 +81,7 @@ class ft_net(nn.Module):
 
     def __init__(self, num_classes, loss='softmax', pretrained=True, droprate=0.5, stride=2, circle=False, **kwargs):
         super(ft_net, self).__init__()
-        model_ft = backbones.resnet50(pretrained=pretrained, loss=loss, num_classes=num_classes, **kwargs)
+        model_ft = resnet50(pretrained=pretrained, loss=loss, num_classes=num_classes, **kwargs)
         # print(model_ft)
         # avg pooling to global pooling
         if stride == 1:
