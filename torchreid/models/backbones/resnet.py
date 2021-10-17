@@ -370,9 +370,9 @@ class ResNet(nn.Module):
         y = self.classifier(v)
 
         if self.loss == 'softmax':
-            return y
+            return y, f  # Returning also the features for self sup
         elif self.loss == 'triplet':
-            return y, v
+            return y, v, f  # Returning also the features for self sup
         else:
             raise KeyError("Unsupported loss: {}".format(self.loss))
 

@@ -7,6 +7,7 @@ from collections import OrderedDict
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
+import sys
 
 from torchreid import metrics
 from torchreid.utils import (
@@ -26,9 +27,10 @@ class Engine(object):
         use_gpu (bool, optional): use gpu. Default is True.
     """
 
-    def __init__(self, datamanager, val=False, use_gpu=True):
+    def __init__(self, datamanager, val=False, self_sup=False, use_gpu=True):
         self.datamanager = datamanager
         self.val = val
+        self.self_sup = self_sup
         self.train_loader = self.datamanager.train_loader
         self.test_loader = self.datamanager.test_loader
         if self.val:
@@ -493,6 +495,8 @@ class Engine(object):
         if isinstance(outputs, (tuple, list)):
             loss = DeepSupervision(criterion, outputs, targets)
         else:
+            print(targets)
+            sys.exit()
             loss = criterion(outputs, targets)
         return loss
 

@@ -61,10 +61,12 @@ class ImageSoftmaxEngine(Engine):
         scheduler=None,
         use_gpu=True,
         label_smooth=True,
-        val=False
+        val=False,
+        self_sup=False
     ):
         self.val = val
-        super(ImageSoftmaxEngine, self).__init__(datamanager, self.val, use_gpu)
+        self.self_sup = self_sup
+        super(ImageSoftmaxEngine, self).__init__(datamanager, self.val, self.self_sup, use_gpu)
 
         self.model = model
         self.optimizer = optimizer
@@ -77,6 +79,13 @@ class ImageSoftmaxEngine(Engine):
             label_smooth=label_smooth
         )
 
+        if self.self_sup:
+            self.jig_criterion = CrossEntropyLoss(
+                num_classes=self.model.num_jig_classes,
+                use_gpu=self.use_gpu,
+                label_smooth=label_smooth
+            )
+
     def forward_backward(self, data):
         imgs, pids = self.parse_data_for_train(data)
 
@@ -84,9 +93,16 @@ class ImageSoftmaxEngine(Engine):
             imgs = imgs.cuda()
             pids = pids.cuda()
 
-        outputs = self.model(imgs)
+        if self.self_sup:
+            outputs, jig_outputs, jig_labels = self.model(imgs)
+            print(len(outputs))
+            print(outputs)
+            jig_loss = self.compute_loss(self.criterion, jig_outputs, jig_labels)
+        else:
+            outputs, _ = self.model(imgs)
 
-        # print(len(outputs))
+        print(len(outputs))
+        print(outputs)
         if isinstance(outputs, (tuple, list)):
             loss = self.compute_loss(self.criterion, outputs[0], pids)
             for i in range(len(outputs) - 1):
@@ -96,15 +112,24 @@ class ImageSoftmaxEngine(Engine):
         # print(loss)
 
         self.optimizer.zero_grad()
-        loss.backward()
+        if self.self_sup:
+            tot_loss = loss + jig_loss
+            tot_loss.backward()
+        else:
+            loss.backward()
         self.optimizer.step()
 
-        loss_summary = {
-            'loss': loss.item(),
-            'acc': metrics.accuracy(outputs, pids)[0].item()
-        }
-
-        # import sys
-        # sys.exit()
+        if self.self_sup:
+            loss_summary = {
+                'tot_loss': tot_loss.item(),
+                'jig_loss': jig_loss.item(),
+                'loss': loss.item(),
+                'acc': metrics.accuracy(outputs, pids)[0].item()
+            }
+        else:
+            loss_summary = {
+                'loss': loss.item(),
+                'acc': metrics.accuracy(outputs, pids)[0].item()
+            }
 
         return loss_summary

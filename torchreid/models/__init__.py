@@ -1,8 +1,8 @@
 from __future__ import absolute_import
 # from torchreid.models.backbones.ft_net import ft_net
-import torch
 
 from .backbones import *
+from .self_sup import SelfSup
 #from .models import *
 
 __model_factory = {
@@ -77,7 +77,7 @@ def show_avai_models():
 #     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
 # ):
 def build_model(
-    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, **kwargs
+    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, **kwargs
 ):
     """A function wrapper for building a model.
 
@@ -104,10 +104,17 @@ def build_model(
         )
     # if ft_net :
     #     return models.ft_net(num_classes)
-    return __model_factory[name](
+    backbone = __model_factory[name](
         num_classes=num_classes,
         loss=loss,
         pretrained=pretrained,
         use_gpu=use_gpu,
         **kwargs
     )
+
+    if self_sup:
+        model = SelfSup(backbone, 2, 4, **kwargs)
+    else:
+        model = backbone
+
+    return model
