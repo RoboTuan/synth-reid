@@ -1,0 +1,45 @@
+import sys
+import unittest
+
+import torch
+from torch import nn
+
+sys.path.append('.')
+from torchreid.optim import build_optimizer, build_lr_scheduler
+from torchreid.utils import set_random_seed
+# from solver.build import make_optimizer
+# from config import cfg
+
+
+class TestScheduler(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        set_random_seed()
+        cls.model = nn.Linear(10, 10)
+        cls.optimizer = build_optimizer(
+            cls.model,
+            optim='adam',
+            lr=0.01,
+            new_layers='classifier',
+            staged_lr=True,
+            base_lr_mult=0.1
+        )
+        cls.scheduler = build_lr_scheduler(
+            cls.optimizer,
+            lr_scheduler='warmup_multi_step',
+            stepsize=[20, 40],
+            warmup_iters=10,
+            warmup_factor=1 / 10,
+            warmup_method='linear',
+        )
+
+    def test_something(self):
+        for i in range(50):
+            for j in range(3):
+                print(i, self.scheduler.get_lr()[0])
+                self.optimizer.step()
+            self.scheduler.step()
+
+
+if __name__ == '__main__':
+    unittest.main()
