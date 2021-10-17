@@ -2,9 +2,10 @@
 import torchreid
 import torch.nn as nn
 # import torch
-from torchreid.utils import set_random_seed, load_pretrained_weights
+from torchreid.utils import set_random_seed, load_pretrained_weights, max_ham_permutations
 # from torchreid.utils import load_pretrained_weights
 import sys
+from torchsummary import summary
 
 import numpy as np
 import random
@@ -14,86 +15,61 @@ set_random_seed()
 # random.seed(10)
 
 
-# set_random_seed(0)
-# from torchreid.data.datasets.image import GTA_synthReid
-# #set_random_seed(0)
-# gta = GTA_synthReid(val=True)
-# print(gta.val_query[0])
-# #set_random_seed(0)
-# gta = GTA_synthReid(val=True)
-# print(gta.val_query[0])
-# #set_random_seed(0)
-# gta = GTA_synthReid(val=True)
-# print(gta.val_query[0])
-# #set_random_seed(0)
-# gta = GTA_synthReid(val=True)
-# print(gta.val_query[0])
-# #set_random_seed(0)
-# gta = GTA_synthReid(val=True)
-# print(gta.val_query[0])
+# P = max_ham_permutations(4, 2, 31)
+# np.save("./perm_31", P)
 # sys.exit()
 
+
+# TODO:check the height and width that is different for each model (384x12, 256x128, ...)
 datamanager = torchreid.data.ImageDataManager(
     root='/mnt/data2/defonte_data/PersonReid_datasets/',
     sources='gta_synthreid',
     targets='gta_synthreid',
-    height=384,
-    width=192,
+    height=256,
+    width=128,
     batch_size_train=32,
     batch_size_test=100,
-    # transforms=['random_flip', 'random_crop'],
-    transforms=['random_flip'],
-    val=True
+    transforms=['random_flip', 'pad', 'random_crop'],
+    # transforms=['random_flip', 'pad', 'random_crop', 'random_erase'],
+    val=True,
+    # train_sampler='RandomIdentitySampler',
+    # num_instances=4
 )
-# print(torch.initial_seed())
-# print(len(datamanager.train_loader))
+
+model = torchreid.models.build_model(
+    name='resnet50',
+    num_classes=datamanager.num_train_pids,
+    loss='softmax',
+    last_stride=1,
+    self_sup=True,
+    # neck='bnneck',
+    # neck_feat='after',
+    pretrained=True
+)
+# print(model)
 # for data in datamanager.train_loader:
-#     print(data['impath'][:5])
-#     break
-
-# print(len(datamanager.test_loader['gta_synthreid']['query']))
-# for data in datamanager.test_loader['gta_synthreid']['query']:
-#     print(data['impath'][:5])
-#     break
-
-# print(len(datamanager.test_loader['gta_synthreid']['gallery']))
-# for data in datamanager.test_loader['gta_synthreid']['gallery']:
-#     print(data['impath'][:5])
-#     break
-
-# print(len(datamanager.val_loader['gta_synthreid']['query']))
-# for data in datamanager.val_loader['gta_synthreid']['query']:
-#     print(data['impath'][:5])
-#     break
-
-# print(len(datamanager.val_loader['gta_synthreid']['gallery']))
-# for data in datamanager.val_loader['gta_synthreid']['gallery']:
-#     print(data['impath'][:5])
+#     model(data['img'])
+#     print("Data")
+#     print(data['img'].shape)
 #     break
 
 # sys.exit()
 
-model = torchreid.models.build_model(
-    name='pcb_p6',
-    num_classes=datamanager.num_train_pids,
-    loss='softmax',
-    pretrained=True
-)
-
-
-print(model)
-# model= nn.DataParallel(model)
+# print(model)
+# model = nn.DataParallel(model)
 
 # model.classifier = nn.Sequential()
 # load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-10')
 model = model.cuda()
+# summary(model, (3, 256, 128))
+# print(model)
 # sys.exit()
 
 optimizer = torchreid.optim.build_optimizer(
     model,
-    optim='sgd',
-    lr=0.05,
-    sgd_nesterov=True,
+    optim='adam',
+    lr=3.5e-4,
+    # sgd_nesterov=True,
     new_layers='classifier',
     staged_lr=True,
     base_lr_mult=0.1
@@ -101,8 +77,11 @@ optimizer = torchreid.optim.build_optimizer(
 
 scheduler = torchreid.optim.build_lr_scheduler(
     optimizer,
-    lr_scheduler='single_step',
-    stepsize=20
+    lr_scheduler='warmup_multi_step',
+    stepsize=[15, 17],
+    warmup_iters=10,
+    warmup_factor=1 / 10,
+    warmup_method='linear',
 )
 
 engine = torchreid.engine.ImageSoftmaxEngine(
@@ -111,16 +90,15 @@ engine = torchreid.engine.ImageSoftmaxEngine(
     optimizer=optimizer,
     scheduler=scheduler,
     label_smooth=True,
-    val=True
+    val=True,
+    self_sup=True
 )
 
-# sys.exit()
-
 engine.run(
-    save_dir='log/pcb_p6',
-    max_epoch=11,
-    eval_freq=4,
-    print_freq=100,
+    save_dir='log/bnneck',
+    max_epoch=1,
+    eval_freq=20,
+    print_freq=500,
     eval_flip=True
     # test_only=True
 )
