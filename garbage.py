@@ -17,7 +17,7 @@ with Image.open("/home/defonte/PersonReid/synth-reid/2602752943_sd007c1_0464.jpe
 # features = torch.rand((32, 2048, 32, 16))
 features = im.reshape(1, 3, 128, 64)
 print(features.shape)
-permutations = np.load("./perm_5.npy")
+permutations = np.load("./perm_31.npy")
 print(permutations.shape)
 grid_size_h = 2
 grid_size_v = 4
@@ -46,6 +46,7 @@ for feature in features:
     tiles = torch.stack(tiles, dim=0)
     index = np.random.choice(permutations.shape[0])
     permutation = permutations[index]
+    print(permutation)
     tiles = tiles[permutation]
     # tiles = tiles.permute(1,0,2,3)
     tiles = make_grid(tiles, nrow=grid_size_h, padding=0)

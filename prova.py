@@ -14,9 +14,9 @@ set_random_seed()
 # np.random.seed(10)
 # random.seed(10)
 
-
-# P = max_ham_permutations(4, 2, 31)
-# np.save("./perm_31", P)
+# max_p = 5
+# P = max_ham_permutations(4, 2, max_p)
+# np.save("./perm_" + str(max_p), P)
 # sys.exit()
 
 
