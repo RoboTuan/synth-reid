@@ -276,7 +276,8 @@ def build_transforms(
     print('+ resize to {}x{}'.format(height, width))
     transform_tr += [Resize((height, width), interpolation=3)]
 
-    # transform_tr += [Pad(10)]
+    if 'pad' in transforms:
+        transform_tr += [Pad(10)]
 
     if 'random_crop' in transforms:
         # print(
