@@ -49,6 +49,7 @@ __model_factory = {
     'hacnn': HACNN,
     'pcb_p6': pcb_p6,
     'pcb_p4': pcb_p4,
+    'bnneck': BNNneck,
     'mlfn': mlfn,
     'osnet_x1_0': osnet_x1_0,
     'osnet_x0_75': osnet_x0_75,
@@ -76,7 +77,7 @@ def show_avai_models():
 #     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
 # ):
 def build_model(
-    name, num_classes, loss='softmax', pretrained=True, use_gpu=True,
+    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, **kwargs
 ):
     """A function wrapper for building a model.
 
@@ -107,5 +108,6 @@ def build_model(
         num_classes=num_classes,
         loss=loss,
         pretrained=pretrained,
-        use_gpu=use_gpu
+        use_gpu=use_gpu,
+        **kwargs
     )
