@@ -398,12 +398,17 @@ def init_pretrained_weights(model, model_url):
 
 
 def resnet18(num_classes, loss='softmax', pretrained=True, **kwargs):
+    last_stride = 2
+    if 'last_stride' in kwargs.keys():
+        last_stride = kwargs['last_stride']
+        kwargs.pop('last_stride')
+
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=BasicBlock,
         layers=[2, 2, 2, 2],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         **kwargs
@@ -414,12 +419,17 @@ def resnet18(num_classes, loss='softmax', pretrained=True, **kwargs):
 
 
 def resnet34(num_classes, loss='softmax', pretrained=True, **kwargs):
+    last_stride = 2
+    if 'last_stride' in kwargs.keys():
+        last_stride = kwargs['last_stride']
+        kwargs.pop('last_stride')
+
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=BasicBlock,
         layers=[3, 4, 6, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         **kwargs
@@ -430,12 +440,17 @@ def resnet34(num_classes, loss='softmax', pretrained=True, **kwargs):
 
 
 def resnet50(num_classes, loss='softmax', pretrained=True, **kwargs):
+    last_stride = 2
+    if 'last_stride' in kwargs.keys():
+        last_stride = kwargs['last_stride']
+        kwargs.pop('last_stride')
+
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=Bottleneck,
         layers=[3, 4, 6, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         **kwargs
@@ -446,12 +461,17 @@ def resnet50(num_classes, loss='softmax', pretrained=True, **kwargs):
 
 
 def resnet101(num_classes, loss='softmax', pretrained=True, **kwargs):
+    last_stride = 2
+    if 'last_stride' in kwargs.keys():
+        last_stride = kwargs['last_stride']
+        kwargs.pop('last_stride')
+
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=Bottleneck,
         layers=[3, 4, 23, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         **kwargs
@@ -462,12 +482,17 @@ def resnet101(num_classes, loss='softmax', pretrained=True, **kwargs):
 
 
 def resnet152(num_classes, loss='softmax', pretrained=True, **kwargs):
+    last_stride = 2
+    if 'last_stride' in kwargs.keys():
+        last_stride = kwargs['last_stride']
+        kwargs.pop('last_stride')
+
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=Bottleneck,
         layers=[3, 8, 36, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         **kwargs
