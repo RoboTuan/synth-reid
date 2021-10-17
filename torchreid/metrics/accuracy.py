@@ -24,15 +24,15 @@ def accuracy(output, target, topk=(1, )):
     batch_size = target.size(0)
     sm = nn.Softmax(dim=1)
 
-    # print(len(output))
-
     if isinstance(output, (tuple, list)):
-        # output = output[0]
-        scores = torch.zeros(output[0].shape)
-        scores = scores.cuda()
-        for part_output in output:
-            scores += sm(part_output)
-        output = scores
+        if len(output) == 2:  # triplet loss
+            output = output[0]
+        else:  # pcb
+            scores = torch.zeros(output[0].shape)
+            scores = scores.cuda()
+            for part_output in output:
+                scores += sm(part_output)
+            output = scores
 
     _, pred = output.topk(maxk, 1, True, True)
     pred = pred.t()
