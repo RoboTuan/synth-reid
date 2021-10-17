@@ -11,11 +11,14 @@ import warnings
 import PIL
 import torch
 from PIL import Image
+import math
+from itertools import permutations
+
 
 __all__ = [
     'mkdir_if_missing', 'check_isfile', 'read_json', 'write_json',
     'set_random_seed', 'download_url', 'read_image', 'collect_env_info',
-    'listdir_nohidden'
+    'listdir_nohidden', 'rotate_img', 'max_ham_permutations'
 ]
 
 
@@ -70,6 +73,41 @@ def set_random_seed():
     torch.backends.cudnn.benchmark = False
 
 
+def hamming_dist(P_all, P, iteration, tot_perm):
+    distances = np.zeros((iteration, tot_perm - iteration), dtype=int)
+    for i in range(iteration):
+        for j, perm in enumerate(P_all):
+            distance = 0
+            for pos in range(P.shape[1]):
+                if P[i][pos] != perm[pos]:
+                    distance += 1
+            distances[i, j] = distance
+    return distances
+
+
+def make_matrix(n_grid_elements):
+    arr = np.arange(n_grid_elements)
+    M = np.array(list(permutations(arr)))
+    return M
+
+
+def max_ham_permutations(grid_size_v, grid_size_h, n_perm):
+    print("Creating permutations with maximal hamming distance...")
+    n_grid_elements = grid_size_v * grid_size_h
+    tot_perm = math.factorial(n_grid_elements)
+    P_all = make_matrix(n_grid_elements)
+    P = np.zeros((n_perm, n_grid_elements), dtype=int)
+    index = np.random.choice(tot_perm, 1, replace=False)
+
+    for i in range(n_perm):
+        P[i] = P_all[index]
+        P_all = np.delete(P_all, index, 0)
+        D = hamming_dist(P_all, P, i + 1, tot_perm)
+        D_cum = D.sum(axis=0)
+        index = np.argmax(D_cum)
+    return P
+
+
 def download_url(url, dst):
     """Downloads file from a url to a destination.
 
@@ -98,6 +136,19 @@ def download_url(url, dst):
 
     urllib.request.urlretrieve(url, dst, _reporthook)
     sys.stdout.write('\n')
+
+
+def rotate_img(img, rot):
+    if rot == 0:  # 0 degrees rotation
+        return img
+    elif rot == 90:  # 90 degrees rotation
+        return np.flipud(np.transpose(img, (1, 0, 2)))
+    elif rot == 180:  # 90 degrees rotation
+        return np.fliplr(np.flipud(img))
+    elif rot == 270:  # 270 degrees rotation / or -90
+        return np.transpose(np.flipud(img), (1, 0, 2))
+    else:
+        raise ValueError('rotation should be 0, 90, 180, or 270 degrees')
 
 
 def read_image(path):
