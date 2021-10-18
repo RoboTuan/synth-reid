@@ -495,8 +495,12 @@ class Engine(object):
         if isinstance(outputs, (tuple, list)):
             loss = DeepSupervision(criterion, outputs, targets)
         else:
-            print(targets)
-            sys.exit()
+            # print("self sup targets: ", targets)
+            # print("self sup outputs: ", outputs)
+            # print(type(targets), type(targets[0]))
+            # print(type(outputs), type(outputs[0]))
+            # print(targets[0])
+            # sys.exit()
             loss = criterion(outputs, targets)
         return loss
 

@@ -40,13 +40,14 @@ model = torchreid.models.build_model(
     name='resnet50',
     num_classes=datamanager.num_train_pids,
     loss='softmax',
-    last_stride=1,
+    # last_stride=2,
     self_sup=True,
     # neck='bnneck',
     # neck_feat='after',
     pretrained=True
 )
 # print(model)
+
 # for data in datamanager.train_loader:
 #     model(data['img'])
 #     print("Data")
@@ -98,7 +99,7 @@ engine.run(
     save_dir='log/bnneck',
     max_epoch=1,
     eval_freq=20,
-    print_freq=500,
+    print_freq=100,
     eval_flip=True
     # test_only=True
 )

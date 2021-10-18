@@ -46,6 +46,11 @@ class SelfSup(nn.Module):
 
         feature_tiles, true_labels = self.permute_tiles(features)
         feature_tiles = torch.stack(feature_tiles, dim=0)
+        # print("original: ", features[0, 0, :, :])
+        # print("permuted: ", feature_tiles[0, 0, :, :])
+        # print(features.shape, feature_tiles.shape)
+        # print(true_labels)
+        # sys.exit()
         jig_outputs = self.jig_saw_puzzle(feature_tiles)
 
         if self.backbone.loss == 'softmax':
@@ -67,7 +72,7 @@ class SelfSup(nn.Module):
             tiles = tiles[permutation]
             tiles = make_grid(tiles, nrow=self.grid_size_h, padding=0)
             feature_tiles.append(tiles)
-        return feature_tiles, torch.Tensor(true_labels).int()
+        return feature_tiles, torch.LongTensor(true_labels)
 
     def get_tile(self, feature, index):
         if (feature.shape[-2] % self.grid_size_v != 0 or

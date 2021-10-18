@@ -95,14 +95,14 @@ class ImageSoftmaxEngine(Engine):
 
         if self.self_sup:
             outputs, jig_outputs, jig_labels = self.model(imgs)
-            print(len(outputs))
-            print(outputs)
+            # print("self sup output length: ", len(outputs))
+            # print("self sup output: ", outputs)
             jig_loss = self.compute_loss(self.criterion, jig_outputs, jig_labels)
         else:
             outputs, _ = self.model(imgs)
 
-        print(len(outputs))
-        print(outputs)
+        # print(len(outputs))
+        # print(outputs)
         if isinstance(outputs, (tuple, list)):
             loss = self.compute_loss(self.criterion, outputs[0], pids)
             for i in range(len(outputs) - 1):
