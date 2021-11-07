@@ -7,6 +7,7 @@ from functools import partial
 from collections import OrderedDict
 import torch
 import torch.nn as nn
+import sys
 
 from .tools import mkdir_if_missing
 
@@ -181,7 +182,7 @@ def open_all_layers(model):
         p.requires_grad = True
 
 
-def open_specified_layers(model, open_layers):
+def open_specified_layers(model, open_layers, self_sup):
     r"""Opens specified layers in model for training while keeping
     other layers frozen.
 
@@ -204,22 +205,104 @@ def open_specified_layers(model, open_layers):
     if isinstance(open_layers, str):
         open_layers = [open_layers]
 
-    for layer in open_layers:
-        assert hasattr(
-            model, layer
-        ), '"{}" is not an attribute of the model, please provide the correct name'.format(
-            layer
-        )
+    if self_sup:
+        backbone_open_layers = []
+        self_sup_open_layers = []
+        for layer in open_layers:
+            # print(layer)
+            if layer.split(".")[0] == 'backbone':
+                try:
+                    attribute = layer.split(".")[1]
+                except IndexError:
+                    print("If self_sup is True, open layers must be "
+                          f"either backbone.<layer_name> or selfSup.<layer_name>, not {layer}")
+                    raise
+                assert hasattr(
+                    model.backbone, attribute
+                ), '"{}" is not an attribute of the model, please provide the correct name'.format(
+                    layer
+                )
+                backbone_open_layers.append(layer.split(".")[1])
 
-    for name, module in model.named_children():
-        if name in open_layers:
-            module.train()
-            for p in module.parameters():
-                p.requires_grad = True
-        else:
-            module.eval()
-            for p in module.parameters():
-                p.requires_grad = False
+            elif layer.split(".")[0] == 'selfSup':
+                try:
+                    attribute = layer.split(".")[1]
+                except IndexError:
+                    print("If self_sup is True, open layers must be "
+                          f"either backbone.<layer_name> or selfSup.<layer_name>, not {layer}")
+                    raise
+                assert hasattr(
+                    model.jig_saw_puzzle, attribute
+                ), '"{}" is not an attribute of the model, please provide the correct name'.format(
+                    layer
+                )
+                self_sup_open_layers.append(layer.split(".")[1])
+
+            else:
+                raise ValueError("If self_sup is True, open layers must be "
+                                 f"either backbone.<layer_name> or selfSup.<layer_name>, not {layer}")
+
+        # print(backbone_open_layers, self_sup_open_layers)
+        # sys.exit()
+
+        for name, module in model.named_children():
+            if name == 'backbone':
+                for name, module in model.backbone.named_children():
+                    # print(name)
+                    if name in backbone_open_layers:
+                        # print(name)
+                        module.train()
+                        for p in module.parameters():
+                            p.requires_grad = True
+                    else:
+                        module.eval()
+                        for p in module.parameters():
+                            p.requires_grad = False
+                    # if name == 'conv1' or name == 'classifier':
+                    #     for p in module.parameters():
+                    #         print(p.requires_grad)
+
+            else:
+                for name, module in model.jig_saw_puzzle.named_children():
+                    if name in self_sup_open_layers:
+                        # print(name)
+                        module.train()
+                        for p in module.parameters():
+                            p.requires_grad = True
+                    else:
+                        module.eval()
+                        for p in module.parameters():
+                            p.requires_grad = False
+
+    else:
+        for layer in open_layers:
+            assert hasattr(
+                model, layer
+            ), '"{}" is not an attribute of the model, please provide the correct name'.format(
+                layer
+            )
+
+        for name, module in model.named_children():
+            if name in open_layers:
+                module.train()
+                for p in module.parameters():
+                    p.requires_grad = True
+            else:
+                module.eval()
+                for p in module.parameters():
+                    p.requires_grad = False
+
+    # print()
+    # for name, module in model.backbone.named_children():
+    #     print(name)
+    #     for p in module.parameters():
+    #         print(p.requires_grad)
+    # print()
+    # for name, module in model.jig_saw_puzzle.named_children():
+    #     print(name)
+    #     for p in module.parameters():
+    #         print(p.requires_grad)
+    # sys.exit()
 
 
 def count_num_param(model):
