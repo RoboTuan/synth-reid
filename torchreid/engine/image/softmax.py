@@ -1,7 +1,10 @@
 from __future__ import division, print_function, absolute_import
 
+import torch.nn as nn
+
 from torchreid import metrics
 from torchreid.losses import CrossEntropyLoss
+from torchreid.models.self_sup import SelfSup
 
 from ..engine import Engine
 
@@ -17,6 +20,12 @@ class ImageSoftmaxEngine(Engine):
         scheduler (LRScheduler, optional): if None, no learning rate decay will be performed.
         use_gpu (bool, optional): use gpu. Default is True.
         label_smooth (bool, optional): use label smoothing regularizer. Default is True.
+        val (bool, optional): set to True if a validation set is used from part of the training set.
+        self_sup (bool, optional): set to True if the 'jig-saw puzzle' self supervised task is used.
+        lambda_id (float, optional): if self_sup is True, this parameter controls the weight of the
+            classification loss.
+        lambda_ss (float, optional): if self_sup is True, this parameter controls the weight of the
+            self supervised loss.
 
     Examples::
 
@@ -62,11 +71,26 @@ class ImageSoftmaxEngine(Engine):
         use_gpu=True,
         label_smooth=True,
         val=False,
-        self_sup=False
+        self_sup=False,
+        lambda_id=1,
+        lambda_ss=1
     ):
         self.val = val
         self.self_sup = self_sup
-        super(ImageSoftmaxEngine, self).__init__(datamanager, self.val, self.self_sup, use_gpu)
+        self.lambda_id = lambda_id
+        self.lambda_ss = lambda_ss
+
+        # if alpha > 1 or alpha < 0:
+        #     raise ValueError("The value of 'alpha' should be set from 0 to 1")
+        # else:
+        #     self.alpha = alpha
+
+        super(ImageSoftmaxEngine, self).__init__(datamanager,
+                                                 self.val,
+                                                 self.self_sup,
+                                                 self.lambda_id,
+                                                 self.lambda_ss,
+                                                 use_gpu)
 
         self.model = model
         self.optimizer = optimizer
@@ -80,8 +104,14 @@ class ImageSoftmaxEngine(Engine):
         )
 
         if self.self_sup:
+            # Multi-GPU attribute access
+            if isinstance(self.model, nn.DataParallel):
+                num_jig_classes = self.model.module.num_jig_classes
+            else:
+                num_jig_classes = self.model.num_jig_classes
+
             self.jig_criterion = CrossEntropyLoss(
-                num_classes=self.model.num_jig_classes,
+                num_classes=num_jig_classes,
                 use_gpu=self.use_gpu,
                 label_smooth=label_smooth
             )
@@ -113,7 +143,7 @@ class ImageSoftmaxEngine(Engine):
 
         self.optimizer.zero_grad()
         if self.self_sup:
-            tot_loss = loss + jig_loss
+            tot_loss = self.lambda_id * loss + self.lambda_ss * jig_loss
             tot_loss.backward()
         else:
             loss.backward()
@@ -121,10 +151,12 @@ class ImageSoftmaxEngine(Engine):
 
         if self.self_sup:
             loss_summary = {
-                'tot_loss': tot_loss.item(),
-                'jig_loss': jig_loss.item(),
                 'loss': loss.item(),
+                'jig_loss': jig_loss.item(),
+                'tot_loss': tot_loss.item(),
+                # add accuracy for self sup task
                 'acc': metrics.accuracy(outputs, pids)[0].item()
+
             }
         else:
             loss_summary = {
