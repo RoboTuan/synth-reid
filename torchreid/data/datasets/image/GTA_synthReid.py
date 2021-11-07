@@ -22,7 +22,7 @@ class GTA_synthReid(ImageDataset):
     def __init__(self, root='/mnt/data2/defonte_data/PersonReid_datasets/', val=False, relabel=True, **kwargs) -> None:
         # super(GTA_synthReid, self).__init__()
 
-        # set_random_seed(0)
+        # set_random_seed()
         self.dataset_dir = osp.join(root, self.dataset_dir)
         self.train_val_dir = osp.join(self.dataset_dir, 'bounding_box_train')
         self.query_dir = osp.join(self.dataset_dir, 'query')
