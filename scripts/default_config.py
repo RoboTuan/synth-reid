@@ -10,13 +10,14 @@ def get_default_config():
     cfg.model.pretrained = True  # automatically load pretrained model weights if available
     cfg.model.load_weights = ''  # path to model weights
     cfg.model.resume = ''  # path to checkpoint for resume training
+    cfg.model.self_sup = False  # self supervised task
 
     # data
     cfg.data = CN()
     cfg.data.type = 'image'
-    cfg.data.root = 'reid-data'
-    cfg.data.sources = ['market1501']
-    cfg.data.targets = ['market1501']
+    cfg.data.root = '/mnt/data2/defonte_data/PersonReid_datasets/'
+    cfg.data.sources = ['gta_synthreid']
+    cfg.data.targets = ['gta_synthreid']
     cfg.data.workers = 4  # number of data loading workers
     cfg.data.split_id = 0  # split index
     cfg.data.height = 256  # image height
@@ -28,6 +29,9 @@ def get_default_config():
     cfg.data.norm_std = [0.229, 0.224, 0.225]  # default is imagenet std
     cfg.data.save_dir = 'log'  # path to save log
     cfg.data.load_train_targets = False  # load training set from target dataset
+    cfg.data.verbose = False  # verbose outputs
+    cfg.data.val = False  # perform validation split
+    cfg.data.relabel = True  # relabel identities from 0 to max identities
 
     # specific datasets
     cfg.market1501 = CN()
@@ -105,6 +109,7 @@ def get_default_config():
     cfg.test.rerank = False  # use person re-ranking
     cfg.test.visrank = False  # visualize ranked results (only available when cfg.test.evaluate=True)
     cfg.test.visrank_topk = 10  # top-k ranks to visualize
+    cfg.test.eval_flip = False  # Flip image during evaluation
 
     return cfg
 
@@ -136,6 +141,9 @@ def imagedata_kwargs(cfg):
         'cuhk03_labeled': cfg.cuhk03.labeled_images,
         'cuhk03_classic_split': cfg.cuhk03.classic_split,
         'market1501_500k': cfg.market1501.use_500k_distractors,
+        'verbose': cfg.data.verbose,
+        'val': cfg.data.val,
+        'relabel': cfg.data.relabel
     }
 
 
@@ -161,7 +169,8 @@ def videodata_kwargs(cfg):
         'train_sampler': cfg.sampler.train_sampler,
         # video dataset specific
         'seq_len': cfg.video.seq_len,
-        'sample_method': cfg.video.sample_method
+        'sample_method': cfg.video.sample_method,
+        'verbose': cfg.data.verbose,
     }
 
 
@@ -178,7 +187,8 @@ def optimizer_kwargs(cfg):
         'adam_beta2': cfg.adam.beta2,
         'staged_lr': cfg.train.staged_lr,
         'new_layers': cfg.train.new_layers,
-        'base_lr_mult': cfg.train.base_lr_mult
+        'base_lr_mult': cfg.train.base_lr_mult,
+        'self_sup': cfg.model.self_sup
     }
 
 
@@ -208,5 +218,6 @@ def engine_run_kwargs(cfg):
         'visrank_topk': cfg.test.visrank_topk,
         'use_metric_cuhk03': cfg.cuhk03.use_metric_cuhk03,
         'ranks': cfg.test.ranks,
-        'rerank': cfg.test.rerank
+        'rerank': cfg.test.rerank,
+        'eval_flip': cfg.test.eval_flip
     }

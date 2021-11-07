@@ -1,4 +1,5 @@
 import sys
+sys.path.append('.')
 import time
 import os.path as osp
 import argparse
@@ -6,6 +7,7 @@ import torch
 import torch.nn as nn
 
 import torchreid
+
 from torchreid.utils import (
     Logger, check_isfile, set_random_seed, collect_env_info,
     resume_from_checkpoint, load_pretrained_weights, compute_model_complexity
@@ -33,7 +35,9 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
                 optimizer=optimizer,
                 scheduler=scheduler,
                 use_gpu=cfg.use_gpu,
-                label_smooth=cfg.loss.softmax.label_smooth
+                label_smooth=cfg.loss.softmax.label_smooth,
+                val=cfg.data.val,
+                self_sup=cfg.model.self_sup
             )
 
         else:
@@ -46,7 +50,10 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
                 weight_x=cfg.loss.triplet.weight_x,
                 scheduler=scheduler,
                 use_gpu=cfg.use_gpu,
-                label_smooth=cfg.loss.softmax.label_smooth
+                label_smooth=cfg.loss.softmax.label_smooth,
+                val=cfg.data.val,
+                self_sup=cfg.model.self_sup
+
             )
 
     else:
@@ -135,7 +142,7 @@ def main():
         cfg.merge_from_file(args.config_file)
     reset_config(cfg, args)
     cfg.merge_from_list(args.opts)
-    set_random_seed(cfg.train.seed)
+    set_random_seed()
     check_cfg(cfg)
 
     log_name = 'test.log' if cfg.test.evaluate else 'train.log'
@@ -157,7 +164,8 @@ def main():
         num_classes=datamanager.num_train_pids,
         loss=cfg.loss.name,
         pretrained=cfg.model.pretrained,
-        use_gpu=cfg.use_gpu
+        use_gpu=cfg.use_gpu,
+        self_sup=cfg.model.self_sup
     )
     num_params, flops = compute_model_complexity(
         model, (1, 3, cfg.data.height, cfg.data.width)

@@ -1,6 +1,7 @@
 # from random import random
 import torchreid
 import torch.nn as nn
+from torchreid.models import self_sup
 # import torch
 from torchreid.utils import set_random_seed, load_pretrained_weights, max_ham_permutations
 # from torchreid.utils import load_pretrained_weights
@@ -47,6 +48,13 @@ model = torchreid.models.build_model(
     pretrained=True
 )
 # print(model)
+# for name, module in model.jig_saw_puzzle.named_children():
+#     print(name)
+#     for p in module.parameters():
+#         print(p.requires_grad)
+#     print()
+
+# sys.exit()
 
 # for data in datamanager.train_loader:
 #     model(data['img'])
@@ -66,23 +74,40 @@ model = model.cuda()
 # print(model)
 # sys.exit()
 
+new_layers_self_sup = [
+    'backbone.classifier',
+    # 'selfSup.feat_extractor',
+    # 'selfSup.global_avgpool',
+    # 'selfSup.flatten',
+    # 'selfSup.classifier'
+]
+
 optimizer = torchreid.optim.build_optimizer(
     model,
-    optim='adam',
+    optim='sgd',
     lr=3.5e-4,
-    # sgd_nesterov=True,
-    new_layers='classifier',
+    sgd_nesterov=True,
+    new_layers=new_layers_self_sup,
+    # new_layers=['classifier', 'layer4'],
     staged_lr=True,
-    base_lr_mult=0.1
+    base_lr_mult=0.1,
+    self_sup=True
 )
+
+# scheduler = torchreid.optim.build_lr_scheduler(
+#     optimizer,
+#     lr_scheduler='warmup_multi_step',
+#     stepsize=[15, 17],
+#     warmup_iters=10,
+#     warmup_factor=1 / 10,
+#     warmup_method='linear',
+# )
 
 scheduler = torchreid.optim.build_lr_scheduler(
     optimizer,
-    lr_scheduler='warmup_multi_step',
-    stepsize=[15, 17],
-    warmup_iters=10,
-    warmup_factor=1 / 10,
-    warmup_method='linear',
+    lr_scheduler='multi_step',
+    stepsize=[15, 25],
+    gamma=0.1
 )
 
 engine = torchreid.engine.ImageSoftmaxEngine(
@@ -90,16 +115,35 @@ engine = torchreid.engine.ImageSoftmaxEngine(
     model,
     optimizer=optimizer,
     scheduler=scheduler,
-    label_smooth=True,
+    label_smooth=False,
     val=True,
-    self_sup=True
+    self_sup=True,
 )
 
+open_layers_self_sup = [
+    'backbone.classifier',
+    'backbone.layer3',
+    'backbone.layer4',
+    'selfSup.feat_extractor',
+    'selfSup.global_avgpool',
+    'selfSup.flatten',
+    'selfSup.classifier'
+]
+
 engine.run(
-    save_dir='log/bnneck',
+    save_dir='log/self_sup_resnet50_seed10_open_classifier',
     max_epoch=1,
-    eval_freq=20,
-    print_freq=100,
-    eval_flip=True
+    eval_freq=6,
+    print_freq=400,
+    eval_flip=True,
+    fixbase_epoch=30,
+    open_layers=open_layers_self_sup
     # test_only=True
+)
+
+load_pretrained_weights(model, 'log/self_sup_resnet50_seed10_open_classifier/model/model.pth.tar-30')
+model = model.cuda()
+
+engine.run(
+    test_only=True
 )

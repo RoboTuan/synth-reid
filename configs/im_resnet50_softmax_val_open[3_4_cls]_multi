@@ -1,0 +1,48 @@
+model:
+  name: 'resnet50'
+  pretrained: True
+  self_sup: False
+
+data:
+  val: True
+  verbose: True
+  type: 'image'
+  sources: ['gta_synthreid']
+  targets: ['gta_synthreid']
+  height: 256
+  width: 128
+  combineall: False
+  transforms: ['random_flip']
+  save_dir: 'log/im_resnet50_softmax_val_open[3_4_cls]_multi'
+
+loss:
+  name: 'softmax'
+  softmax:
+    label_smooth: False
+
+sgd:
+  nesterov: True
+
+train:
+  optim: 'sgd'
+  lr: 0.0003
+  max_epoch: 30
+  batch_size: 32
+  print_freq: 400
+  fixbase_epoch: 30
+  open_layers: [
+    'layer3',
+    'layer4',
+    'classifier',
+  ]
+  lr_scheduler: 'multi_step'
+  stepsize: [10, 20]
+
+test:
+  eval_flip: True
+  batch_size: 100
+  dist_metric: 'euclidean'
+  normalize_feature: False
+  evaluate: False
+  eval_freq: 6
+  rerank: False
