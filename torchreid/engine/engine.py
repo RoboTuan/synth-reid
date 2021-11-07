@@ -27,10 +27,12 @@ class Engine(object):
         use_gpu (bool, optional): use gpu. Default is True.
     """
 
-    def __init__(self, datamanager, val=False, self_sup=False, use_gpu=True):
+    def __init__(self, datamanager, val=False, self_sup=False, lambda_id=1, lambda_ss=1, use_gpu=True):
         self.datamanager = datamanager
         self.val = val
         self.self_sup = self_sup
+        self.lambda_id = lambda_id
+        self.lambda_ss = lambda_ss
         self.train_loader = self.datamanager.train_loader
         self.test_loader = self.datamanager.test_loader
         if self.val:
@@ -38,6 +40,10 @@ class Engine(object):
         self.use_gpu = (torch.cuda.is_available() and use_gpu)
         self.writer = None
         self.epoch = 0
+
+        if self.self_sup:
+            print(f"Weight of classification loss: {self.lambda_id}")
+            print(f"Weight of self sup loss: {self.lambda_ss}")
 
         self.model = None
         self.optimizer = None
@@ -541,6 +547,6 @@ class Engine(object):
                     open_layers, epoch + 1, fixbase_epoch
                 )
             )
-            open_specified_layers(model, open_layers)
+            open_specified_layers(model, open_layers, self.self_sup)
         else:
             open_all_layers(model)
