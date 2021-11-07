@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 from torchvision.utils import make_grid
+import collections
 import sys
 
 
@@ -30,13 +31,21 @@ class SelfSup(nn.Module):
         flatten = nn.Flatten()
         jig_classifier = nn.Linear(self.backbone.inplanes, self.num_jig_classes)
 
-        self.jig_saw_puzzle = nn.Sequential(jig_feature_extractor,
-                                            global_avgpool,
-                                            flatten,
-                                            jig_classifier)
+        self.jig_saw_puzzle = nn.Sequential(collections.OrderedDict(
+                                            [
+                                                ("feat_extractor", jig_feature_extractor),
+                                                ("global_avgpool", global_avgpool),
+                                                ("flatten", flatten),
+                                                ("classifier", jig_classifier)
+                                            ]
+                                            ))
 
     def forward(self, x):
         outputs = self.backbone.forward(x)
+        # print(self.training)
+        if not self.training:
+            return outputs
+            
         if self.backbone.loss == 'softmax':  # Softmax
             output_class, features = outputs
         elif self.backbone.loss == 'triplet':  # Triplet
