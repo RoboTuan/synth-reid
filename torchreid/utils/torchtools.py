@@ -7,6 +7,7 @@ from functools import partial
 from collections import OrderedDict
 import torch
 import torch.nn as nn
+import torchreid.models
 import sys
 
 from .tools import mkdir_if_missing
@@ -182,7 +183,7 @@ def open_all_layers(model):
         p.requires_grad = True
 
 
-def open_specified_layers(model, open_layers, self_sup):
+def open_specified_layers(model_name, model, open_layers, self_sup):
     r"""Opens specified layers in model for training while keeping
     other layers frozen.
 
@@ -275,6 +276,10 @@ def open_specified_layers(model, open_layers, self_sup):
                             p.requires_grad = False
 
     else:
+        # bnneck support
+        if model_name == 'bnneck':
+            model = model.base
+
         for layer in open_layers:
             assert hasattr(
                 model, layer

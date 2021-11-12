@@ -10,6 +10,7 @@ AVAI_OPTIMS = ['adam', 'amsgrad', 'sgd', 'rmsprop', 'radam']
 
 
 def build_optimizer(
+    model_name,
     model,
     optim='adam',
     lr=0.0003,
@@ -77,6 +78,9 @@ def build_optimizer(
         )
 
     if staged_lr:
+        print(f"New layers: {new_layers}")
+        print(f"All other layers have the learning rate multiplied by {base_lr_mult}")
+
         if isinstance(new_layers, str):
             if new_layers is None:
                 warnings.warn(
@@ -134,6 +138,11 @@ def build_optimizer(
                             base_layers.append(name)
 
         else:
+            # print(model_name)
+            # support for bnneck
+            if model_name == 'bnneck':
+                model = model.base
+
             for layer in new_layers:
                 assert hasattr(
                     model, layer

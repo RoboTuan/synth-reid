@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from torchreid import metrics
 from torchreid.losses import CrossEntropyLoss
-from torchreid.models.self_sup import SelfSup
+# from torchreid.models.self_sup import SelfSup
 
 from ..engine import Engine
 
@@ -65,6 +65,7 @@ class ImageSoftmaxEngine(Engine):
     def __init__(
         self,
         datamanager,
+        model_name,
         model,
         optimizer,
         scheduler=None,
@@ -85,13 +86,14 @@ class ImageSoftmaxEngine(Engine):
         # else:
         #     self.alpha = alpha
 
-        super(ImageSoftmaxEngine, self).__init__(datamanager,
-                                                 self.val,
-                                                 self.self_sup,
-                                                 self.lambda_id,
-                                                 self.lambda_ss,
-                                                 use_gpu)
+        super(ImageSoftmaxEngine, self).__init__(datamanager=datamanager,
+                                                 val=self.val,
+                                                 self_sup=self.self_sup,
+                                                 lambda_id=self.lambda_id,
+                                                 lambda_ss=self.lambda_ss,
+                                                 use_gpu=use_gpu)
 
+        self.model_name = model_name
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -113,7 +115,8 @@ class ImageSoftmaxEngine(Engine):
             self.jig_criterion = CrossEntropyLoss(
                 num_classes=num_jig_classes,
                 use_gpu=self.use_gpu,
-                label_smooth=label_smooth
+                # TODO: check if label smooth should be applied also to sel sup task
+                # label_smooth=label_smooth
             )
 
     def forward_backward(self, data):
