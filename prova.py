@@ -37,8 +37,9 @@ datamanager = torchreid.data.ImageDataManager(
     # num_instances=4
 )
 
+model_name = 'resnet50'
 model = torchreid.models.build_model(
-    name='resnet50',
+    name=model_name,
     num_classes=datamanager.num_train_pids,
     loss='softmax',
     # last_stride=2,
@@ -83,6 +84,7 @@ new_layers_self_sup = [
 ]
 
 optimizer = torchreid.optim.build_optimizer(
+    model_name,
     model,
     optim='sgd',
     lr=3.5e-4,
@@ -112,6 +114,7 @@ scheduler = torchreid.optim.build_lr_scheduler(
 
 engine = torchreid.engine.ImageSoftmaxEngine(
     datamanager,
+    model_name,
     model,
     optimizer=optimizer,
     scheduler=scheduler,
@@ -141,7 +144,7 @@ engine.run(
     # test_only=True
 )
 
-load_pretrained_weights(model, 'log/self_sup_resnet50_seed10_open_classifier/model/model.pth.tar-30')
+load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')
 model = model.cuda()
 
 engine.run(

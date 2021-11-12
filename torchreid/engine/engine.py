@@ -46,6 +46,7 @@ class Engine(object):
             print(f"Weight of self sup loss: {self.lambda_ss}")
 
         self.model = None
+        self.model_name = None
         self.optimizer = None
         self.scheduler = None
 
@@ -205,7 +206,8 @@ class Engine(object):
                 use_metric_cuhk03=use_metric_cuhk03,
                 ranks=ranks,
                 rerank=rerank,
-                flip=eval_flip
+                flip=eval_flip,
+                test_only=True
             )
             return
 
@@ -292,7 +294,8 @@ class Engine(object):
                     'data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                     'eta {eta}\t'
                     '{losses}\t'
-                    'lr {lr:.6f}'.format(
+                    # modifies to .8f format for smaller learning rates
+                    'lr {lr:.8f}'.format(
                         self.epoch + 1,
                         self.max_epoch,
                         self.batch_idx + 1,
@@ -332,7 +335,8 @@ class Engine(object):
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
         rerank=False,
-        flip=False
+        flip=False,
+        test_only=False
     ):
         r"""Tests model on target datasets.
 
@@ -349,23 +353,28 @@ class Engine(object):
             Please refer to the source code for more details.
         """
         self.set_model_mode('eval')
-        if self.val:
+        if self.val and not test_only:
             # There is 1 validation dataloader
             targets = list(self.val_loader.keys())
+        elif test_only and self.val:
+            targets = list(self.test_loader.keys())
         else:
             targets = list(self.test_loader.keys())
 
         for name in targets:
             domain = 'source' if name in self.datamanager.sources else 'target'
             print('##### Evaluating {} ({}) #####'.format(name, domain))
-            if self.val:
+            if self.val and not test_only:
+                print("Evaluating on validation data")
                 query_loader = self.val_loader[name]['query']
                 # print(len(query_loader))
                 gallery_loader = self.val_loader[name]['gallery']
                 # print(len(gallery_loader))
             else:
+                print("Evaluating on testing data")
                 query_loader = self.test_loader[name]['query']
                 gallery_loader = self.test_loader[name]['gallery']
+
             rank1, mAP = self._evaluate(
                 dataset_name=name,
                 query_loader=query_loader,
@@ -547,6 +556,7 @@ class Engine(object):
                     open_layers, epoch + 1, fixbase_epoch
                 )
             )
-            open_specified_layers(model, open_layers, self.self_sup)
+            # print(self.model_name)
+            open_specified_layers(self.model_name, model, open_layers, self.self_sup)
         else:
             open_all_layers(model)

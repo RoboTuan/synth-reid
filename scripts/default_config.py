@@ -11,6 +11,7 @@ def get_default_config():
     cfg.model.load_weights = ''  # path to model weights
     cfg.model.resume = ''  # path to checkpoint for resume training
     cfg.model.self_sup = False  # self supervised task
+    cfg.model.last_stride = 2
 
     # data
     cfg.data = CN()
@@ -95,7 +96,7 @@ def get_default_config():
     cfg.loss.triplet = CN()
     cfg.loss.triplet.margin = 0.3  # distance margin
     cfg.loss.triplet.weight_t = 1.  # weight to balance hard triplet loss
-    cfg.loss.triplet.weight_x = 0.  # weight to balance cross entropy loss
+    cfg.loss.triplet.weight_x = 1.  # weight to balance cross entropy loss
 
     # test
     cfg.test = CN()
@@ -210,7 +211,7 @@ def engine_run_kwargs(cfg):
         'open_layers': cfg.train.open_layers,
         'start_eval': cfg.test.start_eval,
         'eval_freq': cfg.test.eval_freq,
-        'test_only': cfg.test.evaluate,
+        # 'test_only': cfg.test.evaluate,
         'print_freq': cfg.train.print_freq,
         'dist_metric': cfg.test.dist_metric,
         'normalize_feature': cfg.test.normalize_feature,

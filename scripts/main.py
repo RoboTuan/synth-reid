@@ -1,12 +1,15 @@
 import sys
 sys.path.append('.')
 import time
+from devreminder import DevReminder
 import os.path as osp
 import argparse
 import torch
 import torch.nn as nn
-
 import torchreid
+
+# remind = DevReminder(#########)
+# remind.me("experiment_name")
 
 from torchreid.utils import (
     Logger, check_isfile, set_random_seed, collect_env_info,
@@ -31,6 +34,7 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
         if cfg.loss.name == 'softmax':
             engine = torchreid.engine.ImageSoftmaxEngine(
                 datamanager,
+                cfg.model.name,
                 model,
                 optimizer=optimizer,
                 scheduler=scheduler,
@@ -43,6 +47,7 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
         else:
             engine = torchreid.engine.ImageTripletEngine(
                 datamanager,
+                cfg.model.name,
                 model,
                 optimizer=optimizer,
                 margin=cfg.loss.triplet.margin,
@@ -165,8 +170,10 @@ def main():
         loss=cfg.loss.name,
         pretrained=cfg.model.pretrained,
         use_gpu=cfg.use_gpu,
+        last_stride=cfg.model.last_stride,
         self_sup=cfg.model.self_sup
     )
+    # print(model)
     num_params, flops = compute_model_complexity(
         model, (1, 3, cfg.data.height, cfg.data.width)
     )
@@ -178,7 +185,7 @@ def main():
     if cfg.use_gpu:
         model = nn.DataParallel(model).cuda()
 
-    optimizer = torchreid.optim.build_optimizer(model, **optimizer_kwargs(cfg))
+    optimizer = torchreid.optim.build_optimizer(cfg.model.name, model, **optimizer_kwargs(cfg))
     scheduler = torchreid.optim.build_lr_scheduler(
         optimizer, **lr_scheduler_kwargs(cfg)
     )
@@ -193,6 +200,11 @@ def main():
     )
     engine = build_engine(cfg, datamanager, model, optimizer, scheduler)
     engine.run(**engine_run_kwargs(cfg))
+
+    engine.run(
+        test_only=True,
+        **engine_run_kwargs(cfg)
+    )
 
 
 if __name__ == '__main__':
