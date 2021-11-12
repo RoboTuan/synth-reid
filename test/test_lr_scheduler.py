@@ -14,13 +14,16 @@ class TestScheduler(unittest.TestCase):
     def setUpClass(cls) -> None:
         set_random_seed()
 
+        model_name = 'resnet34'
+
         cls.model = build_model(
-            name='resnet34',
+            name=model_name,
             num_classes=388,
             loss='softmax',
             pretrained=False
         )
         cls.optimizer = build_optimizer(
+            model_name,
             cls.model,
             optim='adam',
             lr=0.01,
