@@ -16,10 +16,10 @@ data:
   width: 128
   combineall: False
   transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
-  save_dir: 'log/im_bnneck_softmax_val_multi_00'
+  save_dir: 'log/im_bnneck_triplet_val_multi_03'
 
 loss:
-  name: 'softmax'
+  name: 'triplet'
   softmax:
     label_smooth: False
 
@@ -27,7 +27,7 @@ sgd:
   nesterov: True
 
 sampler:
-  train_sampler: RandomSampler
+  train_sampler: RandomIdentitySampler
 
 train:
   optim: 'adam'
