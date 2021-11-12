@@ -45,7 +45,7 @@ class SelfSup(nn.Module):
         # print(self.training)
         if not self.training:
             return outputs
-            
+
         if self.backbone.loss == 'softmax':  # Softmax
             output_class, features = outputs
         elif self.backbone.loss == 'triplet':  # Triplet

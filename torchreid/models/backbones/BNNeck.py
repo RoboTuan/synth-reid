@@ -32,19 +32,19 @@ def weights_init_classifier(m):
             nn.init.constant_(m.bias, 0.0)
 
 
-class BNNneck(nn.Module):
+class BNNeck(nn.Module):
     in_planes = 2048
 
     def __init__(self,
                  num_classes,
                  loss,
                  last_stride,
-                 neck,
-                 neck_feat,
+                 neck_feat='after',
+                 neck='bnneck',
                  model_name='resnet50',
                  pretrained=True,
                  **kwargs):
-        super(BNNneck, self).__init__()
+        super(BNNeck, self).__init__()
 
         # self.gap = nn.AdaptiveAvgPool2d(1)
         # self.gap = nn.AdaptiveMaxPool2d(1)
@@ -61,7 +61,7 @@ class BNNneck(nn.Module):
             self.in_planes = 512
             self.base = resnet34(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
         elif model_name == 'resnet50':
-            print(last_stride)
+            # print("last stride: ", last_stride)
             self.base = resnet50(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
         elif model_name == 'resnet101':
             self.base = resnet101(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
@@ -163,7 +163,13 @@ class BNNneck(nn.Module):
 
         if self.training:
             cls_score = self.base.classifier(feat)
-            return cls_score, global_feat  # global feature for triplet loss
+            # return last feature map 'x' for self supervised
+            if self.loss == 'softmax':
+                return cls_score, x
+            elif self.loss == 'triplet':
+                return cls_score, global_feat, x  # global feature for triplet loss
+            else:
+                raise KeyError("Unsupported loss: {}".format(self.loss))
         else:
             if self.neck_feat == 'after':
                 # print("Test with feature after BN")
