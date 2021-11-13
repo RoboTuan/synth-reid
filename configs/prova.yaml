@@ -1,0 +1,57 @@
+model:
+  name: 'bnneck'
+  pretrained: True
+  self_sup: False
+  last_stride: 2
+  # load_weights: 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30'
+
+
+data:
+  val: True
+  verbose: True
+  type: 'image'
+  sources: ['gta_synthreid']
+  targets: ['gta_synthreid']
+  height: 256
+  width: 128
+  combineall: False
+  transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
+  save_dir: 'log/prova'
+
+loss:
+  name: 'triplet'
+  softmax:
+    label_smooth: True
+
+sgd:
+  nesterov: True
+
+sampler:
+  train_sampler: RandomIdentitySampler
+
+train:
+  optim: 'adam'
+  lr: 1e-5
+  weight_decay: 5e-2  # 5e-1
+  # staged_lr: True
+  max_epoch: 10
+  batch_size: 32
+  print_freq: 400
+  # fixbase_epoch: 30
+  # open_layers: [
+  #   'layer2',
+  #   'layer3',
+  #   'layer4',
+  #   'classifier',
+  # ]
+  lr_scheduler: 'multi_step'
+  stepsize: [10, 20]
+
+test:
+  eval_flip: True
+  batch_size: 100
+  dist_metric: 'euclidean'
+  normalize_feature: False
+  # evaluate: False
+  eval_freq: 2
+  rerank: False

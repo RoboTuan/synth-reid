@@ -390,7 +390,12 @@ class Engine(object):
                 flip=flip
             )
 
-            if self.writer is not None:
+            # Plotting only for training and validation otherwise
+            # final evaluation on validation dara is overwritten by
+            # that of the test set (which is not to be considered
+            # when performing validation, it is just included as a
+            # sanity check)
+            if self.writer is not None and not test_only:
                 self.writer.add_scalar(f'Test/{name}/rank1', rank1, self.epoch)
                 self.writer.add_scalar(f'Test/{name}/mAP', mAP, self.epoch)
 

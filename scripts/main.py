@@ -58,7 +58,6 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
                 label_smooth=cfg.loss.softmax.label_smooth,
                 val=cfg.data.val,
                 self_sup=cfg.model.self_sup
-
             )
 
     else:
