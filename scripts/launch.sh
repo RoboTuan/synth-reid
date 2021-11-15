@@ -1,17 +1,23 @@
 #!/bin/bash
 
 # Run this script from the root directory, example:
-# ./scripts/launch.sh -c configs/im_bnneck_triplet_val_multi.yaml -g 3 -t bnneck_tri -n Y -a Y
+# ./scripts/launch.sh -c configs/im_bnneck_triplet_val_multi.yaml -g 3 -s bnneck_tri -n Y -a Y
 new_session="N"
 tmux_attach="N"
-while getopts c:g:t:n:a: flag
+test_only="False"
+weights="''"
+rerank=False
+while getopts c:g:s:n:a:t:w:r: flag
 do
     case "${flag}" in
         c) configuration=${OPTARG};;
         g) gpu_id=${OPTARG};;
-        t) tmux_session=${OPTARG};;
+        s) tmux_session=${OPTARG};;
         n) new_session=${OPTARG};;
         a) tmux_attach=${OPTARG};;
+        t) test_only=${OPTARG};;
+        w) weights=${OPTARG};;
+        r) rerank=${OPTARG};;
     esac
 done
 
@@ -27,7 +33,7 @@ if [ $? != 0 ]; then
     if [ $new_session = "Y" ]; then
         echo "New nession "$tmux_session
         tmux new-session -d -s $tmux_session
-        tmux send-keys -t $tmux_session "CUBLAS_WORKSPACE_CONFIG=:16:8 CUDA_VISIBLE_DEVICES=$gpu_id python scripts/main.py --config-file $configuration" Enter
+        tmux send-keys -t $tmux_session "CUBLAS_WORKSPACE_CONFIG=:16:8 CUDA_VISIBLE_DEVICES=$gpu_id python scripts/main.py --config-file $configuration test.evaluate $test_only model.load_weights $weights test.rerank $rerank" Enter
         if [ $tmux_attach = "Y" ]; then
             tmux attach -t $tmux_session
         elif [ $tmux_attach = "N" ]; then
@@ -46,7 +52,7 @@ if [ $? != 0 ]; then
     fi
 else
     echo "Existing session "$tmux_session
-    tmux send-keys -t $tmux_session "CUBLAS_WORKSPACE_CONFIG=:16:8 CUDA_VISIBLE_DEVICES=$gpu_id python scripts/main.py --config-file $configuration" Enter
+    tmux send-keys -t $tmux_session "CUBLAS_WORKSPACE_CONFIG=:16:8 CUDA_VISIBLE_DEVICES=$gpu_id python scripts/main.py --config-file $configuration test.evaluate $test_only model.load_weights $weights test.rerank $rerank" Enter
     if [ $tmux_attach = "Y" ]; then
         tmux attach -t $tmux_session
     elif [ $tmux_attach = "N" ]; then

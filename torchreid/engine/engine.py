@@ -197,6 +197,7 @@ class Engine(object):
             )
 
         if test_only:
+            print("Testing only...")
             self.test(
                 dist_metric=dist_metric,
                 normalize_feature=normalize_feature,

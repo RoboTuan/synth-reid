@@ -198,12 +198,12 @@ def main():
         'Building {}-engine for {}-reid'.format(cfg.loss.name, cfg.data.type)
     )
     engine = build_engine(cfg, datamanager, model, optimizer, scheduler)
-    engine.run(**engine_run_kwargs(cfg))
+    engine.run(test_only=cfg.test.evaluate, **engine_run_kwargs(cfg))
 
-    engine.run(
-        test_only=True,
-        **engine_run_kwargs(cfg)
-    )
+    # engine.run(
+    #     test_only=True,
+    #     **engine_run_kwargs(cfg)
+    # )
 
 
 if __name__ == '__main__':
