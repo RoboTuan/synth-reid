@@ -27,10 +27,20 @@ class Engine(object):
         use_gpu (bool, optional): use gpu. Default is True.
     """
 
-    def __init__(self, datamanager, val=False, self_sup=False, lambda_id=1, lambda_ss=1, use_gpu=True):
+    def __init__(
+            self,
+            datamanager,
+            val=False,
+            self_sup=False,
+            lambda_id=1,
+            lambda_ss=1,
+            use_gpu=True,
+            adversarial=False
+    ):
         self.datamanager = datamanager
         self.val = val
         self.self_sup = self_sup
+        self.adversarial = adversarial
         self.lambda_id = lambda_id
         self.lambda_ss = lambda_ss
         self.train_loader = self.datamanager.train_loader
@@ -273,11 +283,27 @@ class Engine(object):
             self.epoch, fixbase_epoch, open_layers
         )
 
+        if self.adversarial:
+            train_t_iterator = iter(self.datamanager.train_loader)
+
         self.num_batches = len(self.train_loader)
         end = time.time()
         for self.batch_idx, data in enumerate(self.train_loader):
+
+            if self.adversarial:
+                try:
+                    other_data = next(train_t_iterator)
+                except StopIteration:
+                    train_t_iterator = iter(self.datamanager.train_loader)
+                    other_data = next(train_t_iterator)
+
             data_time.update(time.time() - end)
-            loss_summary = self.forward_backward(data)
+
+            if self.adversarial:
+                loss_summary = self.forward_backward_adversarial(data, other_data)
+            else:
+                loss_summary = self.forward_backward(data)
+
             batch_time.update(time.time() - end)
             losses.update(loss_summary)
 
@@ -323,6 +349,9 @@ class Engine(object):
         self.update_lr()
 
     def forward_backward(self, data):
+        raise NotImplementedError
+
+    def forward_backward_adversarial(self, data):
         raise NotImplementedError
 
     def test(

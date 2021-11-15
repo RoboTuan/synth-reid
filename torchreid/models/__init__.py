@@ -3,10 +3,16 @@ from __future__ import absolute_import
 
 from .backbones import *
 from .self_sup import SelfSup
+from .cycle_gan import make_discriminator, make_generators
 #from .models import *
 
 __model_factory = {
     # image classification models
+    'generator': Generator,
+    # Model names must be unique when registering model,
+    # so I added the 2 different discriminator of the same class
+    'discriminator_S': Discriminator,
+    'discriminator_R': Discriminator,
     'ft_net50' : ft_net50,
     'resnet18': resnet18,
     'resnet34': resnet34,
@@ -77,7 +83,7 @@ def show_avai_models():
 #     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
 # ):
 def build_model(
-    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, **kwargs
+    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, adversarial=False, **kwargs
 ):
     """A function wrapper for building a model.
 
@@ -102,19 +108,32 @@ def build_model(
         raise KeyError(
             'Unknown model: {}. Must be one of {}'.format(name, avai_models)
         )
-    # if ft_net :
-    #     return models.ft_net(num_classes)
-    backbone = __model_factory[name](
-        num_classes=num_classes,
-        loss=loss,
-        pretrained=pretrained,
-        use_gpu=use_gpu,
-        **kwargs
-    )
+    
+    if not adversarial:
+        # if ft_net :
+        #     return models.ft_net(num_classes)
+        backbone = __model_factory[name](
+            num_classes=num_classes,
+            loss=loss,
+            pretrained=pretrained,
+            use_gpu=use_gpu,
+            **kwargs
+        )
 
-    if self_sup:
-        model = SelfSup(backbone, 2, 4, **kwargs)
+        if self_sup:
+            model = SelfSup(backbone, 2, 4, **kwargs)
+        else:
+            model = backbone
+
+        return model
     else:
-        model = backbone
-
-    return model
+        # 'S' means synthetic, 'R' means real
+        # S->R means transfer learning from synth to real
+        if name == 'generator':
+            generator_S2R = Generator()
+            generator_R2S = Generator()
+            return make_generators(generator_S2R, generator_R2S)
+            # model = __model_factory[name]()
+        elif name == 'discriminator_S' or name == 'discriminator_R':
+            discriminator = Discriminator()
+            return make_discriminator(discriminator)

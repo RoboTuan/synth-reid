@@ -25,29 +25,54 @@ set_random_seed()
 datamanager = torchreid.data.ImageDataManager(
     root='/mnt/data2/defonte_data/PersonReid_datasets/',
     sources='gta_synthreid',
-    targets='gta_synthreid',
+    targets='market1501',
     height=256,
     width=128,
-    batch_size_train=32,
+    batch_size_train=8,
     batch_size_test=100,
     transforms=['random_flip', 'pad', 'random_crop'],
     # transforms=['random_flip', 'pad', 'random_crop', 'random_erase'],
-    val=True,
+    val=False,
+    combineall=True,
+    load_train_targets=True
     # train_sampler='RandomIdentitySampler',
     # num_instances=4
 )
+# sys.exit()
+generators_name = 'generator'
+discriminator_S_name = 'discriminator_S'
+discriminator_R_name = 'discriminator_R'
 
-model_name = 'resnet50'
-model = torchreid.models.build_model(
-    name=model_name,
+generator = torchreid.models.build_model(
     num_classes=datamanager.num_train_pids,
-    loss='softmax',
-    # last_stride=2,
-    self_sup=True,
-    # neck='bnneck',
-    # neck_feat='after',
-    pretrained=True
+    name=generators_name,
+    adversarial=True
 )
+discriminator_S = torchreid.models.build_model(
+    num_classes=datamanager.num_train_pids,
+    name=discriminator_S_name,
+    adversarial=True
+)
+discriminator_R = torchreid.models.build_model(
+    num_classes=datamanager.num_train_pids,
+    name=discriminator_R_name,
+    adversarial=True
+)
+
+generator.cuda()
+discriminator_S.cuda()
+discriminator_R.cuda()
+
+# model = torchreid.models.build_model(
+#     name=model_name,
+#     num_classes=datamanager.num_train_pids,
+#     loss='softmax',
+#     # last_stride=2,
+#     self_sup=True,
+#     # neck='bnneck',
+#     # neck_feat='after',
+#     pretrained=True
+# )
 # print(model)
 # for name, module in model.jig_saw_puzzle.named_children():
 #     print(name)
@@ -57,10 +82,15 @@ model = torchreid.models.build_model(
 
 # sys.exit()
 
+# for data in datamanager.train_loader_t:
+#     print(data)
+#     break
+
 # for data in datamanager.train_loader:
-#     model(data['img'])
-#     print("Data")
-#     print(data['img'].shape)
+#     print(data)
+#     # model(data['img'])
+#     # print("Data")
+#     # print(data['img'].shape)
 #     break
 
 # sys.exit()
@@ -70,7 +100,9 @@ model = torchreid.models.build_model(
 
 # model.classifier = nn.Sequential()
 # load_pretrained_weights(model, 'log/pcb_p6/model/model.pth.tar-10')
-model = model.cuda()
+
+# model = model.cuda()
+
 # summary(model, (3, 256, 128))
 # print(model)
 # sys.exit()
@@ -83,17 +115,28 @@ new_layers_self_sup = [
     # 'selfSup.classifier'
 ]
 
-optimizer = torchreid.optim.build_optimizer(
-    model_name,
-    model,
+optimizer_G = torchreid.optim.build_optimizer(
+    generators_name,
+    generator,
     optim='sgd',
     lr=3.5e-4,
     sgd_nesterov=True,
-    new_layers=new_layers_self_sup,
-    # new_layers=['classifier', 'layer4'],
-    staged_lr=True,
-    base_lr_mult=0.1,
-    self_sup=True
+)
+
+optimizer_DS = torchreid.optim.build_optimizer(
+    discriminator_S_name,
+    discriminator_S,
+    optim='sgd',
+    lr=3.5e-4,
+    sgd_nesterov=True,
+)
+
+optimizer_DR = torchreid.optim.build_optimizer(
+    discriminator_R_name,
+    discriminator_R,
+    optim='sgd',
+    lr=3.5e-4,
+    sgd_nesterov=True,
 )
 
 # scheduler = torchreid.optim.build_lr_scheduler(
@@ -105,48 +148,63 @@ optimizer = torchreid.optim.build_optimizer(
 #     warmup_method='linear',
 # )
 
-scheduler = torchreid.optim.build_lr_scheduler(
-    optimizer,
+scheduler_G = torchreid.optim.build_lr_scheduler(
+    optimizer_G,
     lr_scheduler='multi_step',
     stepsize=[15, 25],
     gamma=0.1
 )
 
-engine = torchreid.engine.ImageSoftmaxEngine(
+scheduler_DS = torchreid.optim.build_lr_scheduler(
+    optimizer_DS,
+    lr_scheduler='multi_step',
+    stepsize=[15, 25],
+    gamma=0.1
+)
+
+scheduler_DR = torchreid.optim.build_lr_scheduler(
+    optimizer_DR,
+    lr_scheduler='multi_step',
+    stepsize=[15, 25],
+    gamma=0.1
+)
+
+model_names = [generators_name, discriminator_S_name, discriminator_R_name]
+models = {
+    'generator': generator,
+    'discriminator_S': discriminator_S,
+    'discriminator_R': discriminator_R,
+}
+optimizers = {
+    'generator': optimizer_G,
+    'discriminator_S': optimizer_DS,
+    'discriminator_R': optimizer_DR,
+}
+schedulers = {
+    'generator': scheduler_G,
+    'discriminator_S': scheduler_DS,
+    'discriminator_R': scheduler_DR,
+}
+
+engine = torchreid.engine.ImageAdversarialEngine(
     datamanager,
-    model_name,
-    model,
-    optimizer=optimizer,
-    scheduler=scheduler,
-    label_smooth=False,
-    val=True,
-    self_sup=True,
+    model_names,
+    models,
+    optimizers=optimizers,
+    schedulers=schedulers,
+    val=False,
 )
 
-open_layers_self_sup = [
-    'backbone.classifier',
-    'backbone.layer3',
-    'backbone.layer4',
-    'selfSup.feat_extractor',
-    'selfSup.global_avgpool',
-    'selfSup.flatten',
-    'selfSup.classifier'
-]
-
 engine.run(
-    save_dir='log/self_sup_resnet50_seed10_open_classifier',
-    max_epoch=1,
+    save_dir='log/gan',
+    max_epoch=4,
     eval_freq=6,
-    print_freq=400,
-    eval_flip=True,
-    fixbase_epoch=30,
-    open_layers=open_layers_self_sup
-    # test_only=True
+    print_freq=100,
 )
 
-load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')
-model = model.cuda()
+# load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')
+# model = model.cuda()
 
-engine.run(
-    test_only=True
-)
+# engine.run(
+#     test_only=True
+# )

@@ -18,7 +18,7 @@ from itertools import permutations
 __all__ = [
     'mkdir_if_missing', 'check_isfile', 'read_json', 'write_json',
     'set_random_seed', 'download_url', 'read_image', 'collect_env_info',
-    'listdir_nohidden', 'rotate_img', 'max_ham_permutations'
+    'listdir_nohidden', 'rotate_img', 'max_ham_permutations', 'ReplayBuffer'
 ]
 
 
@@ -68,7 +68,7 @@ def set_random_seed():
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     # aggiunta di questi
-    torch.use_deterministic_algorithms(True)
+    # torch.use_deterministic_algorithms(True)
     os.environ['PYTHONHASHSEED'] = str(seed)
     torch.backends.cudnn.benchmark = False
 
@@ -197,3 +197,40 @@ def listdir_nohidden(path, sort=False):
     if sort:
         items.sort()
     return items
+
+# Copyright 2020 Lorna Authors. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
+class ReplayBuffer:
+    def __init__(self, max_size=50):
+        assert (max_size > 0), "Empty buffer or trying to create a black hole. Be careful."
+        self.max_size = max_size
+        self.data = []
+
+    def push_and_pop(self, data):
+        to_return = []
+        for element in data.data:
+            element = torch.unsqueeze(element, 0)
+            if len(self.data) < self.max_size:
+                self.data.append(element)
+                to_return.append(element)
+            else:
+                if random.uniform(0, 1) > 0.5:
+                    i = random.randint(0, self.max_size - 1)
+                    to_return.append(self.data[i].clone())
+                    self.data[i] = element
+                else:
+                    to_return.append(element)
+        return torch.cat(to_return)
