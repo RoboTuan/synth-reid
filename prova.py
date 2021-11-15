@@ -28,7 +28,7 @@ datamanager = torchreid.data.ImageDataManager(
     targets='market1501',
     height=256,
     width=128,
-    batch_size_train=8,
+    batch_size_train=14,
     batch_size_test=100,
     transforms=['random_flip', 'pad', 'random_crop'],
     # transforms=['random_flip', 'pad', 'random_crop', 'random_erase'],
@@ -118,25 +118,25 @@ new_layers_self_sup = [
 optimizer_G = torchreid.optim.build_optimizer(
     generators_name,
     generator,
-    optim='sgd',
-    lr=3.5e-4,
-    sgd_nesterov=True,
+    optim='adam',
+    lr=2e-4,
+    # sgd_nesterov=True,
 )
 
 optimizer_DS = torchreid.optim.build_optimizer(
     discriminator_S_name,
     discriminator_S,
-    optim='sgd',
-    lr=3.5e-4,
-    sgd_nesterov=True,
+    optim='adam',
+    lr=2e-4,
+    # sgd_nesterov=True,
 )
 
 optimizer_DR = torchreid.optim.build_optimizer(
     discriminator_R_name,
     discriminator_R,
-    optim='sgd',
-    lr=3.5e-4,
-    sgd_nesterov=True,
+    optim='adam',
+    lr=2e-4,
+    # sgd_nesterov=True,
 )
 
 # scheduler = torchreid.optim.build_lr_scheduler(
@@ -199,7 +199,7 @@ engine.run(
     save_dir='log/gan',
     max_epoch=4,
     eval_freq=6,
-    print_freq=100,
+    print_freq=10,
 )
 
 # load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')

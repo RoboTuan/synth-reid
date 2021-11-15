@@ -18,7 +18,8 @@ from itertools import permutations
 __all__ = [
     'mkdir_if_missing', 'check_isfile', 'read_json', 'write_json',
     'set_random_seed', 'download_url', 'read_image', 'collect_env_info',
-    'listdir_nohidden', 'rotate_img', 'max_ham_permutations', 'ReplayBuffer'
+    'listdir_nohidden', 'rotate_img', 'max_ham_permutations',
+    'ReplayBuffer', 'gan_weights_init'
 ]
 
 
@@ -234,3 +235,12 @@ class ReplayBuffer:
                 else:
                     to_return.append(element)
         return torch.cat(to_return)
+
+
+def gan_weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        torch.nn.init.normal_(m.weight, 0.0, 0.02)
+    elif classname.find("BatchNorm") != -1:
+        torch.nn.init.normal_(m.weight, 1.0, 0.02)
+        torch.nn.init.zeros_(m.bias)

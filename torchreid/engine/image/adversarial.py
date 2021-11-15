@@ -98,12 +98,12 @@ class ImageAdversarialEngine(Engine):
         # TODO: assign weights to the losses
         # Identity loss G_R2S(S) should be equal to S
         identity_S = self.models['generator'].generator_R2S(imgs_S)
-        g_loss_identity_S = self.identity_loss(identity_S, imgs_S)
+        g_loss_identity_S = self.identity_loss(identity_S, imgs_S) * 5.0
         g_loss_identity_S.backward()
         loss_summary['g_loss_identity_S'] = g_loss_identity_S
         # Identity loss G_S2R(R) should be equal to R
         identity_R = self.models['generator'].generator_S2R(imgs_R)
-        g_loss_identity_R = self.identity_loss(identity_R, imgs_R)
+        g_loss_identity_R = self.identity_loss(identity_R, imgs_R) * 5.0
         g_loss_identity_R.backward()
         loss_summary['g_loss_identity_R'] = g_loss_identity_R
 
@@ -122,12 +122,12 @@ class ImageAdversarialEngine(Engine):
 
         # Cycle loss G_R2S(G_S2R(S))
         recovered_imgs_S = self.models['generator'].generator_R2S(generated_imgs_R)
-        g_loss_cycle_SRS = self.cycle_loss(recovered_imgs_S, imgs_S)
+        g_loss_cycle_SRS = self.cycle_loss(recovered_imgs_S, imgs_S) * 10.0
         g_loss_cycle_SRS.backward()
         loss_summary['g_loss_cycle_SRS'] = g_loss_cycle_SRS
         # Cycle loss G_S2R(G_R2S(R))
         recovered_imgs_R = self.models['generator'].generator_S2R(generated_imgs_S)
-        g_loss_cycle_RSR = self.cycle_loss(recovered_imgs_R, imgs_R)
+        g_loss_cycle_RSR = self.cycle_loss(recovered_imgs_R, imgs_R) * 10.0
         g_loss_cycle_RSR.backward()
         loss_summary['g_loss_cycle_RSR'] = g_loss_cycle_RSR
 
@@ -182,4 +182,4 @@ class ImageAdversarialEngine(Engine):
         # loss_discriminator_R.backward()
         self.optimizers['discriminator_R'].step()
 
-        return loss_summary
+        return loss_summary, imgs_S, imgs_R

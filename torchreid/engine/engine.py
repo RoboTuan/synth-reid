@@ -7,6 +7,7 @@ from collections import OrderedDict
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
+import torchvision.utils
 import sys
 
 from torchreid import metrics
@@ -99,17 +100,30 @@ class Engine(object):
         names = self.get_model_names()
 
         for name in names:
-            save_checkpoint(
-                {
-                    'state_dict': self._models[name].state_dict(),
-                    'epoch': epoch + 1,
-                    'rank1': rank1,
-                    'optimizer': self._optims[name].state_dict(),
-                    'scheduler': self._scheds[name].state_dict()
-                },
-                osp.join(save_dir, name),
-                is_best=is_best
-            )
+            if self.adversarial:
+                # TODO: vedere che altro salvare per adversarial
+                save_checkpoint(
+                    {
+                        'state_dict': self._models[name].state_dict(),
+                        'epoch': epoch + 1,
+                        'optimizer': self._optims[name].state_dict(),
+                        'scheduler': self._scheds[name].state_dict()
+                    },
+                    osp.join(save_dir, name),
+                    is_best=is_best
+                )
+            else:
+                save_checkpoint(
+                    {
+                        'state_dict': self._models[name].state_dict(),
+                        'epoch': epoch + 1,
+                        'rank1': rank1,
+                        'optimizer': self._optims[name].state_dict(),
+                        'scheduler': self._scheds[name].state_dict()
+                    },
+                    osp.join(save_dir, name),
+                    is_best=is_best
+                )
 
     def set_model_mode(self, mode='train', names=None):
         assert mode in ['train', 'eval', 'test']
@@ -233,24 +247,29 @@ class Engine(object):
             self.train(
                 print_freq=print_freq,
                 fixbase_epoch=fixbase_epoch,
-                open_layers=open_layers
+                open_layers=open_layers,
+                save_dir=save_dir
             )
 
             if (self.epoch + 1) >= start_eval \
                and eval_freq > 0 \
                and (self.epoch + 1) % eval_freq == 0 \
                and (self.epoch + 1) != self.max_epoch:
-                rank1 = self.test(
-                    dist_metric=dist_metric,
-                    normalize_feature=normalize_feature,
-                    visrank=visrank,
-                    visrank_topk=visrank_topk,
-                    save_dir=save_dir,
-                    use_metric_cuhk03=use_metric_cuhk03,
-                    ranks=ranks,
-                    flip=eval_flip
-                )
-                self.save_model(self.epoch, rank1, save_dir)
+                if self.adversarial:
+                    # Don't save rank for adversarial
+                    self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
+                else:
+                    rank1 = self.test(
+                        dist_metric=dist_metric,
+                        normalize_feature=normalize_feature,
+                        visrank=visrank,
+                        visrank_topk=visrank_topk,
+                        save_dir=save_dir,
+                        use_metric_cuhk03=use_metric_cuhk03,
+                        ranks=ranks,
+                        flip=eval_flip
+                    )
+                    self.save_model(self.epoch, rank1, save_dir)
 
         if self.max_epoch > 0:
             print('=> Final test')
@@ -272,7 +291,7 @@ class Engine(object):
         if self.writer is not None:
             self.writer.close()
 
-    def train(self, print_freq=10, fixbase_epoch=0, open_layers=None):
+    def train(self, print_freq=10, fixbase_epoch=0, open_layers=None, save_dir=None):
         losses = MetricMeter()
         batch_time = AverageMeter()
         data_time = AverageMeter()
@@ -284,7 +303,7 @@ class Engine(object):
         )
 
         if self.adversarial:
-            train_t_iterator = iter(self.datamanager.train_loader)
+            train_t_iterator = iter(self.datamanager.train_loader_t)
 
         self.num_batches = len(self.train_loader)
         end = time.time()
@@ -294,13 +313,13 @@ class Engine(object):
                 try:
                     other_data = next(train_t_iterator)
                 except StopIteration:
-                    train_t_iterator = iter(self.datamanager.train_loader)
+                    train_t_iterator = iter(self.datamanager.train_loader_t)
                     other_data = next(train_t_iterator)
 
             data_time.update(time.time() - end)
 
             if self.adversarial:
-                loss_summary = self.forward_backward_adversarial(data, other_data)
+                loss_summary, imgs_S, imgs_R = self.forward_backward_adversarial(data, other_data)
             else:
                 loss_summary = self.forward_backward(data)
 
@@ -333,6 +352,34 @@ class Engine(object):
                         lr=self.get_current_lr()
                     )
                 )
+                if self.adversarial:
+                    if imgs_S.shape[0] != 3:
+                        img_S = imgs_S[0]
+                        img_R = imgs_R[0]
+                    else:
+                        img_S = imgs_S
+                        img_R = imgs_R
+
+                    torchvision.utils.save_image(img_S, f"{save_dir}/original_synth_{self.epoch + 1}.png", normalize=True)
+                    torchvision.utils.save_image(img_R, f"{save_dir}/original_real_{self.epoch + 1}.png", normalize=True)
+
+                    generated_synth = self.models['generator'].generator_R2S(imgs_R).data
+                    generated_real = self.models['generator'].generator_S2R(imgs_S).data
+
+                    if generated_synth.shape[0] != 3:
+                        generated_synth = generated_synth.detach()[0]
+                        generated_real = generated_real.detach()[0]
+                    else:
+                        generated_synth = generated_synth.detach()
+                        generated_real = generated_real.detach()
+
+                    torchvision.utils.save_image(generated_synth, f"{save_dir}/generated_synth_{self.epoch + 1}.png", normalize=True)
+                    torchvision.utils.save_image(generated_real, f"{save_dir}/generated_real_{self.epoch + 1}.png", normalize=True)
+
+                    torchvision.utils.save_image(0.5 * (generated_synth + 1.0), f"{save_dir}/generated1_synth_{self.epoch + 1}.png", normalize=True)
+                    torchvision.utils.save_image(0.5 * (generated_real + 1.0), f"{save_dir}/generated1_real_{self.epoch + 1}.png", normalize=True)
+
+
 
             if self.writer is not None:
                 n_iter = self.epoch * self.num_batches + self.batch_idx
