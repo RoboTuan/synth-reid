@@ -3,7 +3,7 @@ from __future__ import division, print_function, absolute_import
 import torch.nn as nn
 
 from torchreid import metrics
-from torchreid.losses import TripletLoss, CrossEntropyLoss
+from torchreid.losses import TripletLoss, CrossEntropyLoss, CenterLoss
 
 from ..engine import Engine
 
@@ -70,6 +70,7 @@ class ImageTripletEngine(Engine):
         margin=0.3,
         weight_t=1,
         weight_x=1,
+        weight_c=0,
         scheduler=None,
         use_gpu=True,
         label_smooth=True,
@@ -92,18 +93,41 @@ class ImageTripletEngine(Engine):
         self.scheduler = scheduler
         self.register_model('model', model, optimizer, scheduler)
 
-        assert weight_t >= 0 and weight_x >= 0
+        assert weight_t >= 0 and weight_x >= 0 and weight_c >= 0
         assert weight_t + weight_x > 0
         self.weight_t = weight_t
         self.weight_x = weight_x
+        self.weight_c = weight_c
 
-        # print("loss wieghts: ", self.weight_t, self.weight_x)
+        if not self.self_sup:
+            if isinstance(self.model, nn.DataParallel):
+                try:
+                    feature_dim = self.model.module.feature_dim
+                except AttributeError as e:
+                    print(e)
+                    print("Trying with attribute 'in_planes'...")
+                    feature_dim = self.model.module.in_planes
+                    print("... working!")
+            else:
+                try:
+                    feature_dim = self.model.feature_dim
+                except AttributeError as e:
+                    print(e)
+                    print("Trying with attribute 'in_planes'...")
+                    feature_dim = self.model.in_planes
+                    print("... working!")
 
+        # print("loss wieghts: ", self.weight_t, self.weight_x, self.weight_c)
         self.criterion_t = TripletLoss(margin=margin)
         self.criterion_x = CrossEntropyLoss(
             num_classes=self.datamanager.num_train_pids,
             use_gpu=self.use_gpu,
             label_smooth=label_smooth
+        )
+        self.criterion_c = CenterLoss(
+            num_classes=self.datamanager.num_train_pids,
+            use_gpu=self.use_gpu,
+            feat_dim=feature_dim
         )
 
         if self.self_sup:
@@ -127,6 +151,7 @@ class ImageTripletEngine(Engine):
             imgs = imgs.cuda()
             pids = pids.cuda()
 
+        # 'features' are the feature maps after the global avg pool in resnet
         if self.self_sup:
             outputs, features, jig_outputs, jig_labels = self.model(imgs)
         else:
@@ -143,6 +168,14 @@ class ImageTripletEngine(Engine):
                 loss += self.weight_t * loss_t
                 loss_summary['loss_t'] = loss_t.item()
 
+            if self.weight_c > 0:
+                loss_c = self.compute_loss(self.criterion_c, features, pids)
+                loss += self.weight_c * loss_c
+                loss_summary['loss_c'] = loss_c.item()
+
+            # If the weight of the softmax is 0,
+            # the output of classifier is not included in
+            # the computational graph and accuracy is not computed
             if self.weight_x > 0:
                 loss_x = self.compute_loss(self.criterion_x, outputs, pids)
                 loss += self.weight_x * loss_x

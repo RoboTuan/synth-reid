@@ -53,6 +53,7 @@ def build_engine(cfg, datamanager, model, optimizer, scheduler):
                 margin=cfg.loss.triplet.margin,
                 weight_t=cfg.loss.triplet.weight_t,
                 weight_x=cfg.loss.triplet.weight_x,
+                weight_c=cfg.loss.triplet.weight_c,
                 scheduler=scheduler,
                 use_gpu=cfg.use_gpu,
                 label_smooth=cfg.loss.softmax.label_smooth,
