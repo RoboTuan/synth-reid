@@ -1,11 +1,15 @@
 from __future__ import division, print_function, absolute_import
 
+import torch
 import torch.nn as nn
+import torchvision
 
 from torchreid import metrics
 from torchreid.losses import TripletLoss, CrossEntropyLoss
-
+from torchreid.utils import load_pretrained_weights
+from torchreid.models import Generator
 from ..engine import Engine
+import sys
 
 
 class ImageTripletEngine(Engine):
@@ -74,7 +78,8 @@ class ImageTripletEngine(Engine):
         use_gpu=True,
         label_smooth=True,
         val=False,
-        self_sup=False
+        self_sup=False,
+        generator_path=None
     ):
         self.val = val
         self.self_sup = self_sup
@@ -90,7 +95,17 @@ class ImageTripletEngine(Engine):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.generator_path = generator_path
         self.register_model('model', model, optimizer, scheduler)
+
+        if generator_path is not None:
+            self.generator_S2R = Generator()
+            load_pretrained_weights(self.generator_S2R, self.generator_path)
+            # print(self.generator_S2R)
+            self.generator_S2R.cuda()
+            self.generator_S2R.eval()
+            for p in self.generator_S2R.parameters():
+                p.requires_grad = False
 
         assert weight_t >= 0 and weight_x >= 0
         assert weight_t + weight_x > 0
@@ -126,6 +141,14 @@ class ImageTripletEngine(Engine):
         if self.use_gpu:
             imgs = imgs.cuda()
             pids = pids.cuda()
+
+        # torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/synth.jpg', nrow=8)
+
+        if self.generator_path is not None:
+            with torch.no_grad():
+                imgs = self.generator_S2R(imgs)
+        #         torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/real.jpg', nrow=8)
+        # sys.exit()
 
         if self.self_sup:
             outputs, features, jig_outputs, jig_labels = self.model(imgs)

@@ -13,7 +13,7 @@ import sys
 from torchreid import metrics
 from torchreid.utils import (
     MetricMeter, AverageMeter, re_ranking, open_all_layers, save_checkpoint,
-    open_specified_layers, visualize_ranked_results
+    open_specified_layers, visualize_ranked_results, mkdir_if_missing
 )
 from torchreid.losses import DeepSupervision
 
@@ -257,7 +257,18 @@ class Engine(object):
                and (self.epoch + 1) != self.max_epoch:
                 if self.adversarial:
                     # Don't save rank for adversarial
-                    self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
+                    rank1 = self.test(
+                        dist_metric=dist_metric,
+                        normalize_feature=normalize_feature,
+                        visrank=visrank,
+                        visrank_topk=visrank_topk,
+                        save_dir=save_dir,
+                        use_metric_cuhk03=use_metric_cuhk03,
+                        ranks=ranks,
+                        flip=eval_flip
+                    )
+                    self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=rank1)
+                    # self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
                 else:
                     rank1 = self.test(
                         dist_metric=dist_metric,
@@ -272,18 +283,34 @@ class Engine(object):
                     self.save_model(self.epoch, rank1, save_dir)
 
         if self.max_epoch > 0:
-            print('=> Final test')
-            rank1 = self.test(
-                dist_metric=dist_metric,
-                normalize_feature=normalize_feature,
-                visrank=visrank,
-                visrank_topk=visrank_topk,
-                save_dir=save_dir,
-                use_metric_cuhk03=use_metric_cuhk03,
-                ranks=ranks,
-                flip=eval_flip
-            )
-            self.save_model(self.epoch, rank1, save_dir)
+            # When adversarial is True, save model without testing
+            if self.adversarial:
+                print('=> Final test')
+                rank1 = self.test(
+                    dist_metric=dist_metric,
+                    normalize_feature=normalize_feature,
+                    visrank=visrank,
+                    visrank_topk=visrank_topk,
+                    save_dir=save_dir,
+                    use_metric_cuhk03=use_metric_cuhk03,
+                    ranks=ranks,
+                    flip=eval_flip
+                )
+                # self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
+                self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=rank1)
+            else:
+                print('=> Final test')
+                rank1 = self.test(
+                    dist_metric=dist_metric,
+                    normalize_feature=normalize_feature,
+                    visrank=visrank,
+                    visrank_topk=visrank_topk,
+                    save_dir=save_dir,
+                    use_metric_cuhk03=use_metric_cuhk03,
+                    ranks=ranks,
+                    flip=eval_flip
+                )
+                self.save_model(self.epoch, rank1, save_dir)
 
         elapsed = round(time.time() - time_start)
         elapsed = str(datetime.timedelta(seconds=elapsed))
@@ -308,7 +335,7 @@ class Engine(object):
         self.num_batches = len(self.train_loader)
         end = time.time()
         for self.batch_idx, data in enumerate(self.train_loader):
-
+            self.set_model_mode('train')
             if self.adversarial:
                 try:
                     other_data = next(train_t_iterator)
@@ -319,7 +346,32 @@ class Engine(object):
             data_time.update(time.time() - end)
 
             if self.adversarial:
-                loss_summary, imgs_S, imgs_R = self.forward_backward_adversarial(data, other_data)
+                # print("training")
+                # print(self._models['generator'].training)
+                # print(self._models['generator'].generator_R2S.training)
+                # print(self._models['generator'].generator_S2R.training)
+                # print(self._models['discriminator_S'].training)
+                # print(self._models['discriminator_R'].training)
+
+                # print(self._models['generator'].generator_R2S.ls[1][0].weight)
+                # print(self._models['discriminator_R'].ls[0].weight)
+                # if self.batch_idx + 1 == 2:
+                #     sys.exit()
+
+                # for param in self._models['generator'].generator_R2S.ls.parameters():
+                #     print(param.requires_grad)
+                # print()
+                # for param in self._models['generator'].generator_S2R.ls.parameters():
+                #     print(param.requires_grad)
+                # print()
+                # for param in self._models['discriminator_S'].ls.parameters():
+                #     print(param.requires_grad)
+                # print()
+                # for param in self._models['discriminator_R'].ls.parameters():
+                #     print(param.requires_grad)
+                # print()
+
+                loss_summary, imgs_S, imgs_R, r2r = self.forward_backward_adversarial(self.batch_idx, data, other_data)
             else:
                 loss_summary = self.forward_backward(data)
 
@@ -353,33 +405,51 @@ class Engine(object):
                     )
                 )
                 if self.adversarial:
-                    if imgs_S.shape[0] != 3:
-                        img_S = imgs_S[0]
-                        img_R = imgs_R[0]
+                    # _ = self.test(
+                    #     dist_metric='euclidean',
+                    #     normalize_feature=False,
+                    #     visrank=False,
+                    #     save_dir=save_dir,
+                    #     use_metric_cuhk03=False,
+                    #     ranks=[1, 5, 10, 20],
+                    #     flip=False
+                    # )
+                    if imgs_S.shape[0] != 1:
+                        img_S = torch.unsqueeze(imgs_S[0], 0)
+                        img_R = torch.unsqueeze(imgs_R[0], 0)
+                        r2r = torch.unsqueeze(r2r[0], 0)
                     else:
                         img_S = imgs_S
                         img_R = imgs_R
+                        r2r = r2r
 
-                    torchvision.utils.save_image(img_S, f"{save_dir}/original_synth_{self.epoch + 1}.png", normalize=True)
-                    torchvision.utils.save_image(img_R, f"{save_dir}/original_real_{self.epoch + 1}.png", normalize=True)
+                    with torch.no_grad():
+                        self.set_model_mode('train')
+                        a_real_test = img_S
+                        b_real_test = img_R
+                        # a_real_test, b_real_test = a_real_test.cuda(), b_real_test.cuda()
 
-                    generated_synth = self.models['generator'].generator_R2S(imgs_R).data
-                    generated_real = self.models['generator'].generator_S2R(imgs_S).data
+                        # train G
 
-                    if generated_synth.shape[0] != 3:
-                        generated_synth = generated_synth.detach()[0]
-                        generated_real = generated_real.detach()[0]
-                    else:
-                        generated_synth = generated_synth.detach()
-                        generated_real = generated_real.detach()
+                        # a_fake_test = self.models['generator_R2S'](b_real_test)
+                        b_fake_test = self.models['generator_S2R'](a_real_test)
 
-                    torchvision.utils.save_image(generated_synth, f"{save_dir}/generated_synth_{self.epoch + 1}.png", normalize=True)
-                    torchvision.utils.save_image(generated_real, f"{save_dir}/generated_real_{self.epoch + 1}.png", normalize=True)
+                        # a_rec_test = self.models['generator_R2S'](b_fake_test)
+                        # b_rec_test = self.models['generator_S2R'](a_fake_test)
 
-                    torchvision.utils.save_image(0.5 * (generated_synth + 1.0), f"{save_dir}/generated1_synth_{self.epoch + 1}.png", normalize=True)
-                    torchvision.utils.save_image(0.5 * (generated_real + 1.0), f"{save_dir}/generated1_real_{self.epoch + 1}.png", normalize=True)
+                        # pic = (torch.cat([
+                        #     a_real_test, b_fake_test, a_rec_test, b_real_test, a_fake_test, b_rec_test],
+                        #     dim=0).data + 1) / 2.0
+                        pic = (torch.cat([
+                            a_real_test, b_fake_test, b_real_test, r2r],
+                            dim=0).data + 1) / 2.0
 
-
+                        save_dir = './sample_images_while_training/cut9'
+                        mkdir_if_missing(save_dir)
+                        torchvision.utils.save_image(
+                            pic, '%s/Epoch_(%d)_(%dof%d).jpg' %
+                            (save_dir, self.epoch + 1, self.batch_idx + 1,
+                             max(len(self.train_loader), len(self.datamanager.train_loader_t))), nrow=2)
 
             if self.writer is not None:
                 n_iter = self.epoch * self.num_batches + self.batch_idx
@@ -533,7 +603,6 @@ class Engine(object):
         print('Extracting features from gallery set ...')
         gf, g_pids, g_camids = _feature_extraction(gallery_loader)
         print('Done, obtained {}-by-{} matrix'.format(gf.size(0), gf.size(1)))
-
         print('Speed: {:.4f} sec/batch'.format(batch_time.avg))
 
         if normalize_feature:
@@ -596,7 +665,13 @@ class Engine(object):
         return loss
 
     def extract_features(self, input):
-        return self.model(input)
+        if self.adversarial:
+            features = self.models['generator_S2R'](input, feat_extractor=True)
+            global_features = self.models['id_net'](features)
+            return global_features
+
+        else:
+            return self.model(input)
 
     # def get_output_shape(self, image_dim):
     #     return self.model(torch.rand(*(image_dim))).data.shape
