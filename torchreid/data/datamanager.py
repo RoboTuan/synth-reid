@@ -6,7 +6,6 @@ from torchreid.data.datasets.dataset import Dataset
 from torchreid.data.sampler import build_train_sampler
 from torchreid.data.datasets import init_image_dataset, init_video_dataset
 from torchreid.data.transforms import build_transforms
-import numpy as np
 
 
 class DataManager(object):
@@ -182,7 +181,8 @@ class ImageDataManager(DataManager):
         verbose=True,
         # add option for validation set
         val=False,
-        relabel=True
+        relabel=True,
+        n_samples=50  # taking only #n_samples images for GTA_synthReid
     ):
 
         super(ImageDataManager, self).__init__(
@@ -199,6 +199,8 @@ class ImageDataManager(DataManager):
         self.verbose = verbose
         self.val = val
         self.relabel = relabel
+        self.n_samples = n_samples
+        self.batch_size_train = batch_size_train
         # print(self.val)
 
         self.trainsets = defaultdict(Dataset)
@@ -218,7 +220,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.trainsets[name] = trainset_
             trainset.append(trainset_)
@@ -269,7 +272,8 @@ class ImageDataManager(DataManager):
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
                     val=self.val,
-                    relabel=self.relabel
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
                 trainset_t.append(trainset_t_)
             trainset_t = sum(trainset_t)
@@ -321,7 +325,8 @@ class ImageDataManager(DataManager):
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
                     val=True,
-                    relabel=self.relabel
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
                 # print(val_queryset)
                 self.val_loader[name]['query'] = torch.utils.data.DataLoader(
@@ -346,7 +351,8 @@ class ImageDataManager(DataManager):
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
                     val=True,
-                    relabel=self.relabel
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
 
                 self.val_loader[name]['gallery'] = torch.utils.data.DataLoader(
@@ -387,7 +393,7 @@ class ImageDataManager(DataManager):
                 name,
                 transform=self.transform_te,
                 mode='query',
-                combineall=combineall,
+                combineall=False,
                 verbose=self.verbose,
                 root=root,
                 split_id=split_id,
@@ -395,7 +401,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.test_loader[name]['query'] = torch.utils.data.DataLoader(
                 queryset,
@@ -411,7 +418,7 @@ class ImageDataManager(DataManager):
                 name,
                 transform=self.transform_te,
                 mode='gallery',
-                combineall=combineall,
+                combineall=False,
                 verbose=self.verbose,
                 root=root,
                 split_id=split_id,
@@ -419,7 +426,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.test_loader[name]['gallery'] = torch.utils.data.DataLoader(
                 galleryset,

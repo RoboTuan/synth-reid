@@ -19,7 +19,12 @@ class GTA_synthReid(ImageDataset):
     dataset_dir = 'GTA_synthReid'
 
     # The option relabel is used only for testing purposes
-    def __init__(self, root='/mnt/data2/defonte_data/PersonReid_datasets/', val=False, relabel=True, **kwargs) -> None:
+    def __init__(self,
+                 root='/mnt/data2/defonte_data/PersonReid_datasets/',
+                 val=False,
+                 relabel=True,
+                 n_samples=50,
+                 **kwargs) -> None:
         # super(GTA_synthReid, self).__init__()
 
         # set_random_seed()
@@ -31,6 +36,7 @@ class GTA_synthReid(ImageDataset):
         self._check_before_run()
         self.val = val
         self.relabel = relabel
+        self.n_samples = n_samples
         # print(self.val)
 
         # PUT RELABEL TO FALSE IF VALIDATION SPLIT IS PERFORMED,
@@ -104,10 +110,10 @@ class GTA_synthReid(ImageDataset):
                         pid_images[pid].append(image)
             dataset = []
             for values in pid_images.values():
-                if len(values) <= 50:
+                if len(values) <= self.n_samples:
                     dataset.extend(values)
                 else:
-                    samples = random.sample(values, 50)
+                    samples = random.sample(values, self.n_samples)
                     dataset.extend(samples)
 
         return dataset, np.array(list(pids))
@@ -115,11 +121,12 @@ class GTA_synthReid(ImageDataset):
     def _train_val_split(self):
         train_dataset = []
         val_dataset = []
-        # taking 50 pids for validation
-        val_pids = set(self.train_val_pids[np.random.choice(self.train_val_pids.shape[0], 50, replace=False)])
+        # taking self.n_samples pids for validation
+        val_pids = set(self.train_val_pids[np.random.choice(self.train_val_pids.shape[0],
+                       self.n_samples, replace=False)])
         train_pids = dict()
         count = 0
-        assert len(val_pids) == 50
+        assert len(val_pids) == self.n_samples
         for image in self.train_val:
             if image[1] in val_pids:
                 val_dataset.append(image)
