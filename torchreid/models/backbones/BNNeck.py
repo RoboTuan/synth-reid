@@ -8,6 +8,7 @@ from .resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # from .backbones.senet import SENet, SEResNetBottleneck, SEBottleneck, SEResNeXtBottleneck
 # from .backbones.resnet_ibn_a import resnet50_ibn_a
 
+
 # Using specific initialization for this network,
 # otherise use the initialization provided in torchreid.utils
 def weights_init_kaiming(m):
