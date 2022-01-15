@@ -3,12 +3,16 @@ from __future__ import absolute_import
 
 from .backbones import *
 from .self_sup import SelfSup
-from .cycle_gan import make_discriminator, make_generators
+from .adversarial_model import make_discriminator, make_generator, make_mlp, make_id_net
 #from .models import *
 
 __model_factory = {
     # image classification models
-    'generator': Generator,
+    'generator_S2R': Generator,
+    'generator_R2S': Generator,
+    'mlp': MLP,
+    'id_net': Id_Net,
+    'metric_net': Metric_Net,
     # Model names must be unique when registering model,
     # so I added the 2 different discriminator of the same class
     'discriminator_S': Discriminator,
@@ -128,12 +132,23 @@ def build_model(
         return model
     else:
         # 'S' means synthetic, 'R' means real
-        # S->R means transfer learning from synth to real
-        if name == 'generator':
-            generator_S2R = Generator()
-            generator_R2S = Generator()
-            return make_generators(generator_S2R, generator_R2S)
+        # S2R means transfer learning from synth to real
+        if name == 'generator_S2R' or name == 'generator_R2S':
+            return make_generator()
             # model = __model_factory[name]()
         elif name == 'discriminator_S' or name == 'discriminator_R':
-            discriminator = Discriminator()
-            return make_discriminator(discriminator)
+            return make_discriminator()
+        elif name == 'mlp':
+            return make_mlp(kwargs.get('use_mlp'), kwargs.get('nc'), use_gpu=True)
+        elif name == 'id_net':
+            return make_id_net(kwargs.get('in_planes'), num_classes)
+        else:
+            backbone = __model_factory[name](
+                # num_classes=num_classes,
+                # loss=loss,
+                # pretrained=pretrained,
+                # use_gpu=use_gpu,
+                # **kwargs
+            )
+            return backbone
+
