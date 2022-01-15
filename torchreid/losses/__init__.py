@@ -2,7 +2,9 @@ from __future__ import division, print_function, absolute_import
 
 from .cross_entropy_loss import CrossEntropyLoss
 from .hard_mine_triplet_loss import TripletLoss
-
+from .contrastive_loss import ContrastiveLoss
+from .patchnce import PatchNCELoss
+from .similarity_loss import SimLoss
 
 def DeepSupervision(criterion, xs, y):
     """DeepSupervision
