@@ -1,27 +1,7 @@
 from torch.nn import init
 import torch.nn as nn
 from .resnet import resnet50
-
-
-def weights_init_kaiming(m):
-    classname = m.__class__.__name__
-    # print(classname)
-    if classname.find('Conv') != -1:
-        # For old pytorch, you may use kaiming_normal.
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
-    elif classname.find('Linear') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
-        init.constant_(m.bias.data, 0.0)
-    elif classname.find('BatchNorm1d') != -1:
-        init.normal_(m.weight.data, 1.0, 0.02)
-        init.constant_(m.bias.data, 0.0)
-
-
-def weights_init_classifier(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        init.normal_(m.weight.data, std=0.001)
-        init.constant_(m.bias.data, 0.0)
+from torchreid.utils import weights_init_kaiming, weights_init_classifier
 
 
 # Defines the new fc layer and classification layer
