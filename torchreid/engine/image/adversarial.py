@@ -2,12 +2,13 @@ from __future__ import division, print_function, absolute_import
 
 import torch.nn as nn
 import torch
+import sys
 
 from torchreid import metrics
 from torchreid.utils import ReplayBuffer
-# from torchreid.losses import CrossEntropyLoss
-# from torchreid.models.self_sup import SelfSup
 from ..engine import Engine
+from torchreid.losses import PatchNCELoss, CrossEntropyLoss, SimLoss
+from torchvision.transforms import RandomPerspective, RandomHorizontalFlip
 
 
 class ImageAdversarialEngine(Engine):
@@ -38,6 +39,9 @@ class ImageAdversarialEngine(Engine):
         self_sup=False,
         lambda_id=1,
         lambda_ss=1,
+        nce_layers=[0, 2, 3, 4, 8],
+        dis_layers=[1, 2, 3, 4],
+        num_pathces=256,
     ):
         self.val = val
         self.self_sup = self_sup
@@ -62,124 +66,145 @@ class ImageAdversarialEngine(Engine):
         self.optimizers = optimizers
         self.schedulers = schedulers
 
-        self.generated_S_buffer = ReplayBuffer()
-        self.generated_R_buffer = ReplayBuffer()
+        self.s_fake_pool = ReplayBuffer()
+        self.r_fake_pool = ReplayBuffer()
+        self.nce_layers = nce_layers
+        self.num_patches = num_pathces
+        self.dis_layers = dis_layers
+        batch_size = datamanager.batch_size_train
+        self.augmentations = [RandomHorizontalFlip(p=1),
+                              RandomPerspective(distortion_scale=0.6, p=1.0)]
+        # print(batch_size)
 
         for name in model_names:
             print(name)
             self.register_model(name, self.models[name], self.optimizers[name], self.schedulers[name])
 
-        self.cycle_loss = nn.L1Loss()
-        self.identity_loss = nn.L1Loss()
-        self.adversarial_loss = torch.nn.MSELoss()
+        # self.optimizers['id_net'], self.schedulers['id_net'] =\
+        #     self.models['id_net'].module.optim_sched()
+        # self.register_model('id_net', self.models['id_net'], self.optimizers['id_net'], self.schedulers['id_net'])
 
-    def forward_backward_adversarial(self, data_S, data_R):
-        imgs_S, _ = self.parse_data_for_train(data_S)
-        imgs_R, _ = self.parse_data_for_train(data_R)
-        batch_size = imgs_S.size(0)
+        self.L1 = nn.L1Loss()
+        self.MSE = nn.MSELoss()
+        self.criterionNCE = [PatchNCELoss(batch_size).cuda() for _ in self.nce_layers]
+        self.simLoss = SimLoss()
+        self.criterion = CrossEntropyLoss(
+            num_classes=self.datamanager.num_train_pids,
+            use_gpu=self.use_gpu,
+            label_smooth=True
+        )
 
-        loss_summary = {}
+    def forward_backward_adversarial(self, batch_idx, data_S, data_R):
+        s_real, s_pids = self.parse_data_for_train(data_S)
+        r_real, _ = self.parse_data_for_train(data_R)
+        s_real, r_real, s_pids = s_real.cuda(), r_real.cuda(), s_pids.cuda()
+        loss = {}
 
-        real_label = torch.full((batch_size, 1), 1, dtype=torch.float32)
-        fake_label = torch.full((batch_size, 1), 0, dtype=torch.float32)
+        # Generators
+        # train G
+        r_fake = self.models['generator_S2R'](s_real)
 
-        if self.use_gpu:
-            imgs_S = imgs_S.cuda()
-            imgs_R = imgs_R.cuda()
-            real_label = real_label.cuda()
-            fake_label = fake_label.cuda()
+        # gen losses
+        # r_fake_gen = self.models['discriminator_R'](r_fake)
+        dis_feats_fake = self.models['discriminator_R'](r_fake, self.dis_layers + [5])
+        r_fake_gen = dis_feats_fake[-1]
+        real_label = torch.ones(r_fake_gen.size()).cuda()
+        r_gen_loss = self.MSE(r_fake_gen, real_label)
+        loss['r_gen_loss'] = r_gen_loss.item()
 
-        # generator, discriminator_S, discriminator_R
-        ########################################
-        # Update the two generators: S->R & R->S
-        ########################################
-        self.optimizers['generator'].zero_grad()
+        # similarity losses
+        dis_feats_real = self.models['discriminator_R'](r_real, self.dis_layers)
+        gen_sim_loss = self.calculate_sim_loss(dis_feats_real, dis_feats_fake[:-1])
+        loss['gen_sim_loss'] = gen_sim_loss.item()
 
-        # TODO: assign weights to the losses
-        # Identity loss G_R2S(S) should be equal to S
-        identity_S = self.models['generator'].generator_R2S(imgs_S)
-        g_loss_identity_S = self.identity_loss(identity_S, imgs_S) * 5.0
-        g_loss_identity_S.backward()
-        loss_summary['g_loss_identity_S'] = g_loss_identity_S
-        # Identity loss G_S2R(R) should be equal to R
-        identity_R = self.models['generator'].generator_S2R(imgs_R)
-        g_loss_identity_R = self.identity_loss(identity_R, imgs_R) * 5.0
-        g_loss_identity_R.backward()
-        loss_summary['g_loss_identity_R'] = g_loss_identity_R
+        # nce loss
+        loss_nce = self.calculate_NCE_loss(s_real, r_fake) * 0.5
+        loss['loss_nce'] = loss_nce.item()
+        if self.optimizers['mlp'] is None:
+            self.optimizers['mlp'], self.schedulers['mlp'] =\
+                self.models['mlp'].module.optim_sched()
+            self.register_model('mlp', self.models['mlp'], self.optimizers['mlp'], self.schedulers['mlp'])
 
-        # Gan loss D_S(G_R2S(R))
-        generated_imgs_S = self.models['generator'].generator_R2S(imgs_R)
-        g_output_S = self.models['discriminator_S'](generated_imgs_S)
-        g_loss_gan_R2S = self.adversarial_loss(g_output_S, real_label)
-        g_loss_gan_R2S.backward(retain_graph=True)
-        loss_summary['g_loss_gan_R2S'] = g_loss_gan_R2S
-        # Gan loss D_R(G_S2R(S))
-        generated_imgs_R = self.models['generator'].generator_S2R(imgs_S)
-        g_output_R = self.models['discriminator_R'](generated_imgs_R)
-        g_loss_gan_S2R = self.adversarial_loss(g_output_R, real_label)
-        g_loss_gan_S2R.backward(retain_graph=True)
-        loss_summary['g_loss_gan_S2R'] = g_loss_gan_S2R
+        # identity nce loss
+        r2r = self.models['generator_S2R'](r_real) * 0.5
+        loss_idt_nce = self.calculate_NCE_loss(r_real, r2r)
+        loss['loss_idt_nce'] = loss_idt_nce.item()
 
-        # Cycle loss G_R2S(G_S2R(S))
-        recovered_imgs_S = self.models['generator'].generator_R2S(generated_imgs_R)
-        g_loss_cycle_SRS = self.cycle_loss(recovered_imgs_S, imgs_S) * 10.0
-        g_loss_cycle_SRS.backward()
-        loss_summary['g_loss_cycle_SRS'] = g_loss_cycle_SRS
-        # Cycle loss G_S2R(G_R2S(R))
-        recovered_imgs_R = self.models['generator'].generator_S2R(generated_imgs_S)
-        g_loss_cycle_RSR = self.cycle_loss(recovered_imgs_R, imgs_R) * 10.0
-        g_loss_cycle_RSR.backward()
-        loss_summary['g_loss_cycle_RSR'] = g_loss_cycle_RSR
+        # loss
+        g_loss = r_gen_loss + loss_nce + loss_idt_nce + gen_sim_loss
+        # g_loss = r_gen_loss + loss_nce + loss_idt_nce
+        self.models['mlp'].zero_grad()
+        self.models['generator_S2R'].zero_grad()
+        g_loss.backward()
+        self.optimizers['mlp'].step()
+        self.optimizers['generator_S2R'].step()
 
-        # Total generators loss
-        # loss_generators = g_loss_identity_S + g_loss_identity_R +\
-        #     g_loss_gan_R2S + g_loss_gan_S2R +\
-        #     g_loss_cycle_SRS + g_loss_cycle_RSR
-        # loss_generators.backwards()
-        self.optimizers['generator'].step()
+        # leaves
+        # r_fake = self.r_fake_pool.push_and_pop(r_fake.detach().cpu())
+        # r_fake = r_fake.cuda()
+        r_fake = r_fake.detach()
+        s_real = s_real.detach()
 
-        ########################################
-        # Update the synth discriminator: DS
-        ########################################
-        self.optimizers['discriminator_S'].zero_grad()
+        # Discriminators
+        # train D
+        r_real_dis = self.models['discriminator_R'](r_real)
+        # r_fake_dis = self.models['discriminator_R'](r_fake)
+        dis_feats_fake = self.models['discriminator_R'](r_fake, self.dis_layers + [5])
+        r_fake_dis = dis_feats_fake[-1]
+        real_label = torch.ones(r_real_dis.size()).cuda()
+        fake_label = torch.zeros(r_real_dis.size()).cuda()
 
-        # S image loss
-        ds_output_S = self.models['discriminator_S'](imgs_S)
-        ds_loss_S = self.adversarial_loss(ds_output_S, real_label)
-        ds_loss_S.backward()
-        loss_summary['ds_loss_S'] = ds_loss_S
-        # G_R2S(R) image loss
-        generated_imgs_S = self.generated_S_buffer.push_and_pop(generated_imgs_S)
-        ds_output_R2S = self.models['discriminator_S'](generated_imgs_S.detach())
-        ds_loss_R2S = self.adversarial_loss(ds_output_R2S, fake_label)
-        ds_loss_R2S.backward()
-        loss_summary['ds_loss_R2S'] = ds_loss_R2S
+        # similarity losses
+        dis_feats_synth = self.models['discriminator_R'](s_real, self.dis_layers)
+        dis_sim_loss = self.calculate_sim_loss(dis_feats_synth, dis_feats_fake[:-1])
+        loss['dis_sim_loss'] = dis_sim_loss.item()
 
-        # Total discriminator_S loss
-        # loss_discriminator_S = ds_loss_S + ds_loss_R2S
-        # loss_discriminator_S.backward()
-        self.optimizers['discriminator_S'].step()
+        # d loss
+        r_dis_real_loss = self.MSE(r_real_dis, real_label) * 0.5
+        r_dis_fake_loss = self.MSE(r_fake_dis, fake_label) * 0.5
 
-        ########################################
-        # Update the real discriminator: DR
-        ########################################
-        self.optimizers['discriminator_R'].zero_grad()
+        r_dis_loss = (r_dis_real_loss + r_dis_fake_loss) + dis_sim_loss
+        # r_dis_loss = (r_dis_real_loss + r_dis_fake_loss)
+        loss['r_dis_real_loss'] = r_dis_real_loss.item()
+        loss['r_dis_fake_loss'] = r_dis_fake_loss.item()
 
-        # R image loss
-        dr_output_R = self.models['discriminator_R'](imgs_R)
-        dr_loss_R = self.adversarial_loss(dr_output_R, real_label)
-        dr_loss_R.backward()
-        loss_summary['dr_loss_R'] = dr_loss_R
-        # G_S2R(S) image loss
-        generated_imgs_R = self.generated_R_buffer.push_and_pop(generated_imgs_R)
-        dr_output_S2R = self.models['discriminator_R'](generated_imgs_R.detach())
-        dr_loss_S2R = self.adversarial_loss(dr_output_S2R, fake_label)
-        dr_loss_S2R.backward()
-        loss_summary['dr_loss_S2R'] = dr_loss_S2R
-
-        # Total discriminator_R loss
-        # loss_discriminator_R = dr_loss_R + dr_loss_S2R
-        # loss_discriminator_R.backward()
+        # backward
+        self.models['discriminator_R'].zero_grad()
+        r_dis_loss.backward()
         self.optimizers['discriminator_R'].step()
 
-        return loss_summary, imgs_S, imgs_R
+        # Re-Id loss
+        r_fake = r_fake.detach()
+        r_fake_features = self.models['generator_S2R'](r_fake, feat_extractor=True)
+        r_fake_outputs = self.models['id_net'](r_fake_features)
+        reid_loss = self.compute_loss(self.criterion, r_fake_outputs, s_pids)
+        loss['reid_loss'] = reid_loss.item()
+        loss['acc'] = metrics.accuracy(r_fake_outputs, s_pids)[0].item()
+        self.models['id_net'].zero_grad()
+        reid_loss.backward()
+        self.optimizers['id_net'].step()
+
+        return loss, s_real, r_real, r2r
+
+    def calculate_NCE_loss(self, src, tgt):
+        n_layers = len(self.nce_layers)
+        feat_q = self.models['generator_S2R'](tgt, self.nce_layers, encode_only=True)
+
+        feat_k = self.models['generator_S2R'](src, self.nce_layers, encode_only=True)
+        feat_k_pool, sample_ids = self.models['mlp'](feat_k, self.num_patches, None)
+        feat_q_pool, _ = self.models['mlp'](feat_q, self.num_patches, sample_ids)
+
+        total_nce_loss = 0.0
+        for f_q, f_k, crit, nce_layer in zip(feat_q_pool, feat_k_pool, self.criterionNCE, self.nce_layers):
+            loss = crit(f_q, f_k)
+            total_nce_loss += loss.mean()
+
+        return total_nce_loss / n_layers
+
+    def calculate_sim_loss(self, feats_real, feats_fake):
+        n_feats = len(feats_real)
+        total_sim_loss = 0.0
+        for feat_r, feat_f in zip(feats_real, feats_fake):
+            loss = self.simLoss(feat_r, feat_f)
+            total_sim_loss += loss
+        return total_sim_loss / n_feats
