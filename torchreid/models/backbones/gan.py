@@ -171,7 +171,7 @@ class Generator(nn.Module):
 
         self.decoder = nn.Sequential(dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
                                      dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
-                                     Self_Attn(dim * 1),
+                                     #  Self_Attn(dim * 1),
                                      nn.ReflectionPad2d(3),
                                      nn.Conv2d(dim, 3, 7, 1),
                                      nn.Tanh())

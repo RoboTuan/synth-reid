@@ -12,7 +12,6 @@ __model_factory = {
     'generator_R2S': Generator,
     'mlp': MLP,
     'id_net': Id_Net,
-    'metric_net': Metric_Net,
     # Model names must be unique when registering model,
     # so I added the 2 different discriminator of the same class
     'discriminator_S': Discriminator,
