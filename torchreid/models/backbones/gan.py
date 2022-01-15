@@ -1,109 +1,234 @@
-# Copyright 2020 Lorna Authors. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import functools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchreid.models.backbones.resnet import BasicBlock, conv1x1
+from torchreid.optim import build_lr_scheduler, build_optimizer
+from torchreid.utils import weights_init_kaiming
+import sys
+
+
+# norm = functools.partial(nn.InstanceNorm2d, affine=False)
+
+class Self_Attn(nn.Module):
+    """ Self attention Layer"""
+    def __init__(self, in_dim, k=8):
+        super(Self_Attn, self).__init__()
+        self.chanel_in = in_dim
+        self.C_tilde = self.chanel_in // k
+        # self.activation = activation
+
+        self.query_conv = nn.Conv2d(in_channels=self.chanel_in, out_channels=self.C_tilde, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels=self.chanel_in, out_channels=self.C_tilde, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels=self.chanel_in, out_channels=self.C_tilde, kernel_size=1)
+        self.self_att = nn.Conv2d(in_channels=self.C_tilde, out_channels=self.chanel_in, kernel_size=1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        """
+            inputs :
+                x : input feature maps( B X C X W X H)
+            returns :
+                out : self attention value + input feature
+                attention: B X N X N (N is Width*Height)
+        """
+        B, _, H, W = x.size()  # N = W * H
+        # print(x.size())
+        f_x = self.query_conv(x).flatten(2).transpose(1, 2)  # B x N x C//8
+        # print(f_x.size())
+        g_x = self.key_conv(x).flatten(2)  # B x C//8 x N
+        # print(g_x.size())
+        h_x = self.value_conv(x).flatten(2)  # B X C//8 X N
+        # print(h_x.size())
+
+        s = torch.bmm(f_x, g_x)  # transpose check B x N x N
+        # print(s.size())
+        beta = self.softmax(s)  # B x N x N
+        # print(beta.size())
+
+        v = torch.bmm(h_x, beta)  # B x C//8 x N
+        # print(v.size())
+        v = v.view(B, self.C_tilde, H, W)
+        # print(v.size())
+
+        o = self.self_att(v)
+        # print(o.size())
+        y = self.gamma * o + x
+        # print(self.gamma)
+        # print(y.size())
+        # sys.exit()
+
+        return y
+
+
+def check_norm(norm, out_dim):
+    if norm == "InstanceNorm":
+        norm = functools.partial(nn.InstanceNorm2d, num_features=out_dim, affine=False)
+    elif norm == "BatchNorm":
+        norm = functools.partial(nn.BatchNorm2d, num_features=out_dim, affine=False)
+    elif norm == "SpectralNorm":
+        norm = functools.partial(nn.utils.spectral_norm)
+    else:
+        raise NotImplementedError
+    return norm
+
+
+def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
+                  norm="InstanceNorm", activation=nn.ReLU):
+
+    norm = check_norm(norm, out_dim)
+    return nn.Sequential(
+        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
+        norm(),
+        activation())
+
+
+def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
+                   output_padding=0, norm="InstanceNorm", activation=nn.ReLU):
+
+    norm = check_norm(norm, out_dim)
+    return nn.Sequential(
+        nn.ConvTranspose2d(in_dim, out_dim, kernel_size, stride,
+                           padding, output_padding, bias=False),
+        norm(),
+        activation())
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+
+    def __init__(self, dim=64):
         super(Discriminator, self).__init__()
 
-        self.main = nn.Sequential(
-            nn.Conv2d(3, 64, 4, stride=2, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
+        lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
+        conv_bn_lrelu = functools.partial(conv_norm_act, activation=lrelu, norm="InstanceNorm")
 
-            nn.Conv2d(64, 128, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
+        self.net = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
+                                 conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
+                                 conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
+                                 # Self_Attn(dim * 4),
+                                 conv_bn_lrelu(dim * 4, dim * 8, 4, 1, (1, 2)),  # 1×512×31*37
+                                 nn.Conv2d(dim * 8, 1, 4, 1, (2, 1))  # B×1×32*16
+                                 )
 
-            nn.Conv2d(128, 256, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(256),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(256, 512, 4, padding=1),
-            nn.InstanceNorm2d(512),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(512, 1, 4, padding=1),
-        )
-
-    def forward(self, x):
-        x = self.main(x)
-        x = F.avg_pool2d(x, x.size()[2:])
-        x = torch.flatten(x, 1)
-        return x
-
-
-class Generator(nn.Module):
-    def __init__(self):
-        super(Generator, self).__init__()
-        self.main = nn.Sequential(
-            # Initial convolution block
-            nn.ReflectionPad2d(3),
-            nn.Conv2d(3, 64, 7),
-            nn.InstanceNorm2d(64),
-            nn.ReLU(inplace=True),
-
-            # Downsampling
-            nn.Conv2d(64, 128, 3, stride=2, padding=1),
-            nn.InstanceNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 256, 3, stride=2, padding=1),
-            nn.InstanceNorm2d(256),
-            nn.ReLU(inplace=True),
-
-            # Residual blocks
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-            ResidualBlock(256),
-
-            # Upsampling
-            nn.ConvTranspose2d(256, 128, 3, stride=2, padding=1, output_padding=1),
-            nn.InstanceNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=1),
-            nn.InstanceNorm2d(64),
-            nn.ReLU(inplace=True),
-
-            # Output layer
-            nn.ReflectionPad2d(3),
-            nn.Conv2d(64, 3, 7),
-            nn.Tanh()
-        )
-
-    def forward(self, x):
-        return self.main(x)
+    def forward(self, x, layers=[]):
+        if len(layers) > 0:
+            feats = []
+            for layer_id, layer in enumerate(self.net):
+                x = layer(x)
+                if layer_id in layers:
+                    feats.append(x)
+                    # print(layer)
+            return feats
+        else:
+            return self.net(x)
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels):
+
+    def __init__(self, in_dim, out_dim):
         super(ResidualBlock, self).__init__()
 
-        self.res = nn.Sequential(nn.ReflectionPad2d(1),
-                                 nn.Conv2d(in_channels, in_channels, 3),
-                                 nn.InstanceNorm2d(in_channels),
-                                 nn.ReLU(inplace=True),
-                                 nn.ReflectionPad2d(1),
-                                 nn.Conv2d(in_channels, in_channels, 3),
-                                 nn.InstanceNorm2d(in_channels))
+        conv_bn_relu = functools.partial(conv_norm_act, norm="InstanceNorm")
+        self.layers = nn.Sequential(nn.ReflectionPad2d(1),
+                                    conv_bn_relu(in_dim, out_dim, 3, 1),
+                                    nn.ReflectionPad2d(1),
+                                    nn.Conv2d(out_dim, out_dim, 3, 1),
+                                    nn.InstanceNorm2d(out_dim)
+                                    )
 
     def forward(self, x):
-        return x + self.res(x)
+        return x + self.layers(x)
+
+
+class Generator(nn.Module):
+
+    def __init__(self, dim=64):
+        super(Generator, self).__init__()
+
+        conv_bn_relu = functools.partial(conv_norm_act, norm="InstanceNorm")
+        dconv_bn_relu = functools.partial(dconv_norm_act, norm="InstanceNorm")
+
+        self.encoder = nn.Sequential(nn.ReflectionPad2d(3),
+                                     conv_bn_relu(3, dim * 1, 7, 1),
+                                     conv_bn_relu(dim * 1, dim * 2, 3, 2, 1),
+                                     conv_bn_relu(dim * 2, dim * 4, 3, 2, 1),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     ResidualBlock(dim * 4, dim * 4),
+                                     #  Self_Attn(dim * 4)
+                                     )
+
+        self.decoder = nn.Sequential(dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
+                                     dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
+                                     Self_Attn(dim * 1),
+                                     nn.ReflectionPad2d(3),
+                                     nn.Conv2d(dim, 3, 7, 1),
+                                     nn.Tanh())
+
+    def forward(self, x, layers=[], encode_only=False, feat_extractor=False):
+        if feat_extractor:
+            features = self.encoder(x)
+            return features
+        else:
+            if len(layers) > 0:
+                feat = x
+                feats = []
+                for layer_id, layer in enumerate(self.encoder):
+                    feat = layer(feat)
+                    if layer_id in layers:
+                        feats.append(feat)
+                    if layer_id == layers[-1] and encode_only:
+                        return feats  # return intermediate features alone; stop in the last layers
+                feat = self.decoder(feat)
+                return feat, feats  # return both output and intermediate results
+            else:
+                features = self.encoder(x)
+                images = self.decoder(features)
+                return images
+
+
+class Conv_Relu_Pool(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super(Conv_Relu_Pool, self).__init__()
+        self.layer = nn.Sequential(
+            nn.Conv2d(in_dim, out_dim, 4, 2, 1),
+            nn.LeakyReLU(0.2),
+            nn.MaxPool2d(2, stride=2)
+        )
+
+    def forward(self, x):
+        return self.layer(x)
+
+
+class Id_Net(nn.Module):
+    def __init__(self, in_channels, n_identities):
+        super(Id_Net, self).__init__()
+
+        self.layers = nn.Sequential(
+            BasicBlock(in_channels, in_channels * 2, 2, conv1x1(in_channels, in_channels * 2, 2)),
+            BasicBlock(in_channels * 2, in_channels * 4, 2, conv1x1(in_channels * 2, in_channels * 4, 2)),
+            BasicBlock(in_channels * 4, in_channels * 8, 2, conv1x1(in_channels * 4, in_channels * 8, 2)),
+        )
+        self.global_avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten(1)
+        self.classifier = nn.Linear(2048, n_identities)
+
+    def forward(self, x):
+        feats = self.layers(x)
+        global_feats = self.global_avgpool(feats)
+        global_feats = self.flatten(global_feats)
+        if not self.training:
+            return global_feats
+        out = self.classifier(global_feats)
+        return out
