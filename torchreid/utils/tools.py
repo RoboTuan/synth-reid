@@ -10,6 +10,7 @@ import os.path as osp
 import warnings
 import PIL
 import torch
+from torch.nn import init
 from PIL import Image
 import math
 from itertools import permutations
@@ -19,7 +20,7 @@ __all__ = [
     'mkdir_if_missing', 'check_isfile', 'read_json', 'write_json',
     'set_random_seed', 'download_url', 'read_image', 'collect_env_info',
     'listdir_nohidden', 'rotate_img', 'max_ham_permutations',
-    'ReplayBuffer', 'gan_weights_init'
+    'ReplayBuffer', 'weights_init_normal', 'weights_init_kaiming', 'weights_init_classifier',
 ]
 
 
@@ -237,10 +238,36 @@ class ReplayBuffer:
         return torch.cat(to_return)
 
 
-def gan_weights_init(m):
+def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
-        torch.nn.init.normal_(m.weight, 0.0, 0.02)
+        init.normal_(m.weight, 0.0, 0.02)
+        if m.bias is not None:
+            init.constant_(m.bias, 0.0)
     elif classname.find("BatchNorm") != -1:
-        torch.nn.init.normal_(m.weight, 1.0, 0.02)
-        torch.nn.init.zeros_(m.bias)
+        init.normal_(m.weight, 1.0, 0.02)
+        init.zeros_(m.bias)
+
+
+def weights_init_kaiming(m):
+    classname = m.__class__.__name__
+    # print(classname)
+    if classname.find('Conv') != -1:
+        # For old pytorch, you may use kaiming_normal.
+        init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+        if m.bias is not None:
+            init.constant_(m.bias, 0.0)
+    elif classname.find('Linear') != -1:
+        init.kaiming_normal_(m.weight, a=0, mode='fan_out')
+        init.constant_(m.bias, 0.0)
+    elif classname.find('BatchNorm1d') != -1:
+        init.normal_(m.weight, 1.0, 0.02)
+        init.constant_(m.bias, 0.0)
+
+
+def weights_init_classifier(m):
+    classname = m.__class__.__name__
+    if classname.find('Linear') != -1:
+        init.normal_(m.weight, std=0.001)
+        if m.bias is not None:
+            init.constant_(m.bias, 0.0)
