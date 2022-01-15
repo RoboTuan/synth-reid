@@ -1,6 +1,10 @@
 # vscode
 .vscode/
 
+# Pictures
+sample_images_while_training/*
+sample_images_while_training1/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
