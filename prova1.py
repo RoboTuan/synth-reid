@@ -19,7 +19,8 @@ import sys
 import numpy as np
 import random
 
-set_random_seed()
+seed = 10
+set_random_seed(seed)
 
 
 def mkdir(paths):

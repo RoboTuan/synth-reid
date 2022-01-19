@@ -11,7 +11,9 @@ from torchsummary import summary
 import numpy as np
 import random
 
-set_random_seed()
+seed = 10
+set_random_seed(seed)
+
 
 # TODO:check the height and width that is different for each model (384x12, 256x128, ...)
 datamanager = torchreid.data.ImageDataManager(

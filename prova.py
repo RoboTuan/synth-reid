@@ -8,12 +8,14 @@ from torchreid.utils import set_random_seed, load_pretrained_weights, resume_fro
 # from torchreid.utils import load_pretrained_weights
 import sys
 from torchsummary import summary
-from collections import defaultdict, OrderedDict
+import wandb
+import json
 
 import numpy as np
 import random
 
-set_random_seed()
+seed = 10
+set_random_seed(seed)
 
 # TODO:check the height and width that is different for each model (384x12, 256x128, ...)
 datamanager = torchreid.data.ImageDataManager(
@@ -28,6 +30,7 @@ datamanager = torchreid.data.ImageDataManager(
     transforms=['random_flip', 'random_crop_translate'],
     val=False,
     combineall=True,
+    seed=seed,
     # workers=4,
     load_train_targets=True,
     norm_mean=[0.5] * 3,
@@ -38,61 +41,34 @@ datamanager = torchreid.data.ImageDataManager(
 )
 # sys.exit()
 
-# backbone_name = 'metric_net'
-generator_S2R_name = 'generator_S2R'
-# generator_R2S_name = 'generator_R2S'
-# discriminator_S_name = 'discriminator_S'
-discriminator_R_name = 'discriminator_R'
-mlp_name = 'mlp'
-id_net_name = 'id_net'
+generator_S2R_name = 'generator'
+discriminator_R_name = 'discriminator'
+feature_net_name = 'mlp'
+convnet_name = 'id_net'
 
-# backbone = torchreid.models.build_model(
-#     num_classes=datamanager.num_train_pids,
-#     name=backbone_name,
-#     adversarial=True,
-#     loss='triplet'
-# )
 
 generator_S2R = torchreid.models.build_model(
-    num_classes=datamanager.num_train_pids,
     name=generator_S2R_name,
     adversarial=True
 )
 
-# print(generator_S2R)
-# sys.exit()
-
-# generator_R2S = torchreid.models.build_model(
-#     num_classes=datamanager.num_train_pids,
-#     name=generator_R2S_name,
-#     adversarial=True
-# )
-
-# discriminator_S = torchreid.models.build_model(
-#     num_classes=datamanager.num_train_pids,
-#     name=discriminator_S_name,
-#     adversarial=True
-# )
-
 discriminator_R = torchreid.models.build_model(
-    num_classes=datamanager.num_train_pids,
     name=discriminator_R_name,
     adversarial=True
 )
 
-mlp = torchreid.models.build_model(
-    num_classes=datamanager.num_train_pids,
+feature_net = torchreid.models.build_model(
     adversarial=True,
-    name=mlp_name,
+    name=feature_net_name,
     use_mlp=True,
     nc=256
 )
 
 print(datamanager.num_train_pids)
-id_net = torchreid.models.build_model(
+convnet = torchreid.models.build_model(
     num_classes=datamanager.num_train_pids,
     in_planes=256,
-    name=id_net_name,
+    name=convnet_name,
     adversarial=True,
 )
 
@@ -106,17 +82,9 @@ generator_S2R = nn.DataParallel(generator_S2R).cuda()
 # generator_R2S = nn.DataParallel(generator_R2S).cuda()
 # discriminator_S = nn.DataParallel(discriminator_S).cuda()
 discriminator_R = nn.DataParallel(discriminator_R).cuda()
-mlp = nn.DataParallel(mlp).cuda()
-id_net = nn.DataParallel(id_net).cuda()
+feature_net = nn.DataParallel(feature_net).cuda()
+convnet = nn.DataParallel(convnet).cuda()
 
-# optimizer_B = torchreid.optim.build_optimizer(
-#     backbone_name,
-#     backbone,
-#     optim='adam',
-#     lr=2e-4,
-#     # weight_decay=5e-2
-#     # sgd_nesterov=True,
-# )
 
 optimizer_GS2R = torchreid.optim.build_optimizer(
     generator_S2R_name,
@@ -127,24 +95,6 @@ optimizer_GS2R = torchreid.optim.build_optimizer(
     # sgd_nesterov=True,
 )
 
-# optimizer_GR2S = torchreid.optim.build_optimizer(
-#     generator_R2S_name,
-#     generator_R2S,
-#     optim='adam',
-#     adam_beta1=0.5,
-#     lr=2e-4,
-#     # sgd_nesterov=True,
-# )
-
-# optimizer_DS = torchreid.optim.build_optimizer(
-#     discriminator_S_name,
-#     discriminator_S,
-#     optim='adam',
-#     adam_beta1=0.5,
-#     lr=2e-4,
-#     # sgd_nesterov=True,
-# )
-
 optimizer_DR = torchreid.optim.build_optimizer(
     discriminator_R_name,
     discriminator_R,
@@ -154,21 +104,15 @@ optimizer_DR = torchreid.optim.build_optimizer(
     # sgd_nesterov=True,
 )
 
-optimizer_id = torchreid.optim.build_optimizer(
-    id_net_name,
-    id_net,
+optimizer_CNN = torchreid.optim.build_optimizer(
+    convnet_name,
+    convnet,
     optim='adam',
     adam_beta1=0.5,
-    lr=2e-4,
+    lr=1e-5,
+    weight_decay=5e-2
 )
 
-
-# scheduler_B = torchreid.optim.build_lr_scheduler(
-#     optimizer_B,
-#     lr_scheduler='multi_step',
-#     stepsize=[15, 25],
-#     gamma=0.1
-# )
 
 scheduler_GS2R = torchreid.optim.build_lr_scheduler(
     optimizer_GS2R,
@@ -177,20 +121,6 @@ scheduler_GS2R = torchreid.optim.build_lr_scheduler(
     gamma=0.1
 )
 
-# scheduler_GR2S = torchreid.optim.build_lr_scheduler(
-#     optimizer_GR2S,
-#     lr_scheduler='multi_step',
-#     stepsize=[15, 25],
-#     gamma=0.1
-# )
-
-# scheduler_DS = torchreid.optim.build_lr_scheduler(
-#     optimizer_DS,
-#     lr_scheduler='multi_step',
-#     stepsize=[15, 25],
-#     gamma=0.1
-# )
-
 scheduler_DR = torchreid.optim.build_lr_scheduler(
     optimizer_DR,
     lr_scheduler='multi_step',
@@ -198,58 +128,73 @@ scheduler_DR = torchreid.optim.build_lr_scheduler(
     gamma=0.1
 )
 
-scheduler_id = torchreid.optim.build_lr_scheduler(
-    optimizer_id,
+scheduler_CNN = torchreid.optim.build_lr_scheduler(
+    optimizer_CNN,
     lr_scheduler='multi_step',
     stepsize=[15, 25],
-    gamma=0.1
+    gamma=0.1,
+    # warmup_iters=10,
+    # warmup_method='linear',
 )
 
 
 # model_names = [generator_S2R_name, generator_R2S_name, discriminator_S_name, discriminator_R_name]
-model_names = [id_net_name, generator_S2R_name, discriminator_R_name, mlp_name]
+# [convnet_name, generator_S2R_name, discriminator_R_name, feature_net_name]
+model_names = {
+    'generator': generator_S2R_name,
+    'discriminator': discriminator_R_name,
+    'feature_net': feature_net_name,
+    'convnet': convnet_name
+}
 
 models = {
-    # 'metric_net': backbone,
-    'generator_S2R': generator_S2R,
-    # 'generator_R2S': generator_R2S,
-    # 'discriminator_S': discriminator_S,
-    'discriminator_R': discriminator_R,
-    'mlp': mlp,
-    'id_net': id_net
+    generator_S2R_name: generator_S2R,
+    discriminator_R_name: discriminator_R,
+    feature_net_name: feature_net,
+    convnet_name: convnet
 }
 
 optimizers = {
-    # 'metric_net': optimizer_B,
-    'generator_S2R': optimizer_GS2R,
-    # 'generator_R2S': optimizer_GR2S,
-    # 'discriminator_S': optimizer_DS,
-    'discriminator_R': optimizer_DR,
-    'mlp': None,
-    'id_net': optimizer_id
+    generator_S2R_name: optimizer_GS2R,
+    discriminator_R_name: optimizer_DR,
+    feature_net_name: None,
+    convnet_name: optimizer_CNN
 }
 
 schedulers = {
-    # 'metric_net': scheduler_B,
-    'generator_S2R': scheduler_GS2R,
-    # 'generator_R2S': scheduler_GR2S,
-    # 'discriminator_S': scheduler_DS,
-    'discriminator_R': scheduler_DR,
-    'mlp': None,
-    'id_net': scheduler_id
+    generator_S2R_name: scheduler_GS2R,
+    discriminator_R_name: scheduler_DR,
+    feature_net_name: None,
+    convnet_name: scheduler_CNN
 }
 
 # for name in model_names:
 #     if name == 'mlp':
 #         dummy_feats = [torch.rand((1, 3)), torch.rand((1, 128))]
 #         dummy_feats.extend([torch.rand((1, 256))] * 3)
-#         mlp.module.create_mlp(dummy_feats)
-#         optimizer_mlp, scheduler_mlp = mlp.module.optim_sched()
+#         feature_net.module.create_mlp(dummy_feats)
+#         optimizer_mlp, scheduler_mlp = feature_net.module.optim_sched()
 #         optimizers['mlp'] = optimizer_mlp
 #         schedulers['mlp'] = scheduler_mlp
-#     path = "log/CUT7/" + name + "/model.pth.tar-30"
+#     path = "log/CUT10/" + name + "/model.pth.tar-30"
 #     start_epoch = resume_from_checkpoint(path, models[name], optimizers[name], schedulers[name])
 #     print(start_epoch)
+
+try:
+    with open('wandb_api.key', 'r') as file:
+        wandb_identity = json.load(file)
+except FileNotFoundError as e:
+    print("Create a json file in the root directory of this repo called 'wandb_api.key',\n")
+    print("it must have as keys the 'entity', 'project' and 'api-key' of your wandb account.\n")
+    print("For the entity you can put yours or that of a team,\
+    for the project put a project name (e.g. adversarial_ReId")
+    raise(e)
+wandb.login(anonymous='never', relogin=True, timeout=30, key=wandb_identity['key'])
+wandb.init(resume=False,
+           # sync_tensorboard=True,
+           project=wandb_identity['project'],
+           entity=wandb_identity['entity'],
+           name="prova")
 
 engine = torchreid.engine.ImageAdversarialEngine(
     datamanager,
@@ -262,10 +207,10 @@ engine = torchreid.engine.ImageAdversarialEngine(
 
 engine.run(
     # start_epoch=start_epoch,
-    save_dir='log/CUT9',
-    max_epoch=8,
-    eval_freq=6,
-    print_freq=250,
+    save_dir='log/adversarial_prova',
+    max_epoch=30,
+    eval_freq=10,
+    print_freq=50,
 )
 
 # load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')
