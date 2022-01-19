@@ -8,6 +8,7 @@ import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.utils
+import wandb
 import sys
 
 from torchreid import metrics
@@ -16,6 +17,7 @@ from torchreid.utils import (
     open_specified_layers, visualize_ranked_results, mkdir_if_missing
 )
 from torchreid.losses import DeepSupervision
+from torchreid.utils.torchtools import plot_grad_flow
 
 
 class Engine(object):
@@ -137,8 +139,10 @@ class Engine(object):
 
     def get_current_lr(self, names=None):
         names = self.get_model_names(names)
-        name = names[0]
-        return self._optims[name].param_groups[-1]['lr']
+        lrs = []
+        for name in names:
+            lrs.append((str(name + '_lr: '), self._optims[name].param_groups[-1]['lr']))
+        return lrs
 
     def update_lr(self, names=None):
         names = self.get_model_names(names)
@@ -346,37 +350,14 @@ class Engine(object):
             data_time.update(time.time() - end)
 
             if self.adversarial:
-                # print("training")
-                # print(self._models['generator'].training)
-                # print(self._models['generator'].generator_R2S.training)
-                # print(self._models['generator'].generator_S2R.training)
-                # print(self._models['discriminator_S'].training)
-                # print(self._models['discriminator_R'].training)
-
-                # print(self._models['generator'].generator_R2S.ls[1][0].weight)
-                # print(self._models['discriminator_R'].ls[0].weight)
-                # if self.batch_idx + 1 == 2:
-                #     sys.exit()
-
-                # for param in self._models['generator'].generator_R2S.ls.parameters():
-                #     print(param.requires_grad)
-                # print()
-                # for param in self._models['generator'].generator_S2R.ls.parameters():
-                #     print(param.requires_grad)
-                # print()
-                # for param in self._models['discriminator_S'].ls.parameters():
-                #     print(param.requires_grad)
-                # print()
-                # for param in self._models['discriminator_R'].ls.parameters():
-                #     print(param.requires_grad)
-                # print()
-
                 loss_summary, imgs_S, imgs_R, r2r = self.forward_backward_adversarial(self.batch_idx, data, other_data)
             else:
                 loss_summary = self.forward_backward(data)
 
             batch_time.update(time.time() - end)
             losses.update(loss_summary)
+
+            n_iter = self.epoch * self.num_batches + self.batch_idx
 
             if (self.batch_idx + 1) % print_freq == 0:
                 nb_this_epoch = self.num_batches - (self.batch_idx + 1)
@@ -390,9 +371,7 @@ class Engine(object):
                     'time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     'data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                     'eta {eta}\t'
-                    '{losses}\t'
-                    # modifies to .8f format for smaller learning rates
-                    'lr {lr:.8f}'.format(
+                    '{losses}\t'.format(
                         self.epoch + 1,
                         self.max_epoch,
                         self.batch_idx + 1,
@@ -401,8 +380,9 @@ class Engine(object):
                         data_time=data_time,
                         eta=eta_str,
                         losses=losses,
-                        lr=self.get_current_lr()
-                    )
+                    ),
+                    # modifies to .8f format for smaller learning rates
+                    '\t '.join([str(lr[0] + str("%.8f" % lr[1])) for lr in self.get_current_lr()])
                 )
                 if self.adversarial:
                     # _ = self.test(
@@ -423,46 +403,54 @@ class Engine(object):
                         img_R = imgs_R
                         r2r = r2r
 
+                    for model_name, model in self.models.items():
+                        plot_grad_flow(model.module.named_parameters(), model_name, n_iter)
+                    # plot_grad_flow(self.models['mlp'].module.named_parameters(), 'mlp', n_iter)
+                    # sys.exit()
                     with torch.no_grad():
-                        self.set_model_mode('train')
+                        # n_iter = self.epoch * self.num_batches + self.batch_idx
+                        # print(n_iter)
+                        self.set_model_mode('eval')
                         a_real_test = img_S
                         b_real_test = img_R
-                        # a_real_test, b_real_test = a_real_test.cuda(), b_real_test.cuda()
+                        # print(self.models)
+                        # print(self._models)
+                        b_fake_test = self.models['generator'](a_real_test)
 
-                        # train G
-
-                        # a_fake_test = self.models['generator_R2S'](b_real_test)
-                        b_fake_test = self.models['generator_S2R'](a_real_test)
-
-                        # a_rec_test = self.models['generator_R2S'](b_fake_test)
-                        # b_rec_test = self.models['generator_S2R'](a_fake_test)
-
-                        # pic = (torch.cat([
-                        #     a_real_test, b_fake_test, a_rec_test, b_real_test, a_fake_test, b_rec_test],
-                        #     dim=0).data + 1) / 2.0
                         pic = (torch.cat([
                             a_real_test, b_fake_test, b_real_test, r2r],
                             dim=0).data + 1) / 2.0
+                        # pic = torchvision.utils.make_grid(pic, nrow=2)
 
-                        save_dir = './sample_images_while_training/cut9'
-                        mkdir_if_missing(save_dir)
-                        torchvision.utils.save_image(
-                            pic, '%s/Epoch_(%d)_(%dof%d).jpg' %
-                            (save_dir, self.epoch + 1, self.batch_idx + 1,
-                             max(len(self.train_loader), len(self.datamanager.train_loader_t))), nrow=2)
+                        # only len of train loader and not max between
+                        # this and the other dataloader, since we're iterating on this
+                        caption = "Epoch_({})_({}of{}).jpg".format(
+                            self.epoch + 1, self.batch_idx + 1, len(self.train_loader)
+                        )
+                        # tag = "Epoch_({}).jpg".format(
+                        #     self.epoch + 1
+                        # )
+                        wandb.log({"media/images": wandb.Image(pic, caption=caption)}, step=n_iter + 1)
+                        # self.writer.add_image(tag, torchvision.utils.make_grid(pic), global_step=self.epoch)
+                        # save_img_dir = save_dir + '/sample_images_while_training'
+                        # mkdir_if_missing(save_img_dir)
+                        # torchvision.utils.save_image(pic, '%s/%s' % (save_img_dir, caption), nrow=2)
 
             if self.writer is not None:
-                n_iter = self.epoch * self.num_batches + self.batch_idx
+                # n_iter = self.epoch * self.num_batches + self.batch_idx
+                # print(n_iter)
                 self.writer.add_scalar('Train/time', batch_time.avg, n_iter)
+                wandb.log({'Train/time': batch_time.avg}, step=n_iter + 1)
                 self.writer.add_scalar('Train/data', data_time.avg, n_iter)
+                wandb.log({'Train/data': data_time.avg}, step=n_iter + 1)
                 for name, meter in losses.meters.items():
                     self.writer.add_scalar('Train/' + name, meter.avg, n_iter)
-                self.writer.add_scalar(
-                    'Train/lr', self.get_current_lr(), n_iter
-                )
+                    wandb.log({'Train/' + name: meter.avg}, step=n_iter + 1)
+                for lr in self.get_current_lr():
+                    self.writer.add_scalar(('Train/lr_' + lr[0]), lr[1], n_iter)
+                    wandb.log({'Train/lr_' + lr[0]: lr[1]}, step=n_iter + 1)
 
             end = time.time()
-
         self.update_lr()
 
     def forward_backward(self, data):
@@ -666,7 +654,7 @@ class Engine(object):
 
     def extract_features(self, input):
         if self.adversarial:
-            features = self.models['generator_S2R'](input, feat_extractor=True)
+            features = self.models['generator'](input, feat_extractor=True)
             global_features = self.models['id_net'](features)
             return global_features
 

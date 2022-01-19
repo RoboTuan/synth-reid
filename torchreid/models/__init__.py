@@ -3,19 +3,17 @@ from __future__ import absolute_import
 
 from .backbones import *
 from .self_sup import SelfSup
-from .adversarial_model import make_discriminator, make_generator, make_mlp, make_id_net
+from .adversarial_model import make_discriminator, make_generator, make_id_net
 #from .models import *
 
 __model_factory = {
     # image classification models
-    'generator_S2R': Generator,
-    'generator_R2S': Generator,
+    'generator': Generator,
     'mlp': MLP,
     'id_net': Id_Net,
     # Model names must be unique when registering model,
     # so I added the 2 different discriminator of the same class
-    'discriminator_S': Discriminator,
-    'discriminator_R': Discriminator,
+    'discriminator': Discriminator,
     'ft_net50' : ft_net50,
     'resnet18': resnet18,
     'resnet34': resnet34,
@@ -86,7 +84,7 @@ def show_avai_models():
 #     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
 # ):
 def build_model(
-    name, num_classes, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, adversarial=False, **kwargs
+    name='model', num_classes=None, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, adversarial=False, **kwargs
 ):
     """A function wrapper for building a model.
 
@@ -132,13 +130,14 @@ def build_model(
     else:
         # 'S' means synthetic, 'R' means real
         # S2R means transfer learning from synth to real
-        if name == 'generator_S2R' or name == 'generator_R2S':
+        if name == 'generator':
             return make_generator()
             # model = __model_factory[name]()
-        elif name == 'discriminator_S' or name == 'discriminator_R':
+        elif name == 'discriminator':
             return make_discriminator()
         elif name == 'mlp':
-            return make_mlp(kwargs.get('use_mlp'), kwargs.get('nc'), use_gpu=True)
+            # return make_mlp(kwargs.get('use_mlp'), kwargs.get('nc'), use_gpu=True)
+            return MLP(use_gpu=use_gpu, **kwargs)
         elif name == 'id_net':
             return make_id_net(kwargs.get('in_planes'), num_classes)
         else:
