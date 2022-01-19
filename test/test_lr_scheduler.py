@@ -12,7 +12,8 @@ from torchreid.utils import set_random_seed
 class TestScheduler(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        set_random_seed()
+        seed = 10
+        set_random_seed(seed)
 
         model_name = 'resnet34'
 
