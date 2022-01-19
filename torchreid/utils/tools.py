@@ -63,8 +63,8 @@ def write_json(obj, fpath):
         json.dump(obj, f, indent=4, separators=(',', ': '))
 
 
-def set_random_seed():
-    seed = 10
+def set_random_seed(seed):
+    # seed = 10
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
