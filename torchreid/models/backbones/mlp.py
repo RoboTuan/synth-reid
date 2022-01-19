@@ -5,7 +5,15 @@ from torchreid.optim import build_optimizer, build_lr_scheduler
 
 
 class MLP(nn.Module):
-    def __init__(self, use_mlp=False, nc=256, use_gpu=True):
+    def __init__(self,
+                 use_mlp=False,
+                 nc=256,
+                 use_gpu=True,
+                 optim='adam',
+                 lr=2e-4,
+                 weight_decay=5e-3,
+                 adam_beta1=0.5,
+                 step_size=[15, 25]):
         # potential issues: currently, we use the same patch_ids for multiple images in the batch
         super(MLP, self).__init__()
         self.l2norm = Normalize(2)
@@ -13,22 +21,27 @@ class MLP(nn.Module):
         self.nc = nc  # hard-coded
         self.mlp_init = False
         self.use_gpu = use_gpu
+        self.optim = optim
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.adam_beta1 = adam_beta1
+        self.step_size = step_size
 
     def optim_sched(self):
         optimizer = build_optimizer(
             "mlp",
             self,
-            optim='adam',
-            adam_beta1=0.5,
-            lr=2e-4,
+            optim=self.optim,
+            adam_beta1=self.adam_beta1,
+            lr=self.lr,
+            weight_decay=self.weight_decay
         )
         scheduler = build_lr_scheduler(
             optimizer,
             lr_scheduler='multi_step',
-            stepsize=[15, 25],
+            stepsize=self.step_size,
             gamma=0.1
         )
-
         return optimizer, scheduler
 
     def create_mlp(self, feats):

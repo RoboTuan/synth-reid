@@ -13,9 +13,9 @@ def make_discriminator():
     return discriminator.apply(weights_init_kaiming)
 
 
-def make_mlp(use_mlp, nc, use_gpu):
-    mlp = MLP(use_mlp, nc, use_gpu)
-    return mlp
+# def make_mlp(use_mlp, nc, use_gpu, optim, lr, adam_beta1, step_size):
+#     mlp = MLP(use_mlp, nc, use_gpu, optim, lr, adam_beta1, step_size)
+#     return mlp
 
 
 def make_id_net(in_planes, num_classes):

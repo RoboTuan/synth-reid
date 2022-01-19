@@ -107,7 +107,7 @@ class Discriminator(nn.Module):
         lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
         conv_bn_lrelu = functools.partial(conv_norm_act, activation=lrelu, norm="InstanceNorm")
 
-        self.net = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
+        self.dis = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
                                  conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
                                  conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
                                  # Self_Attn(dim * 4),
@@ -118,14 +118,14 @@ class Discriminator(nn.Module):
     def forward(self, x, layers=[]):
         if len(layers) > 0:
             feats = []
-            for layer_id, layer in enumerate(self.net):
+            for layer_id, layer in enumerate(self.dis):
                 x = layer(x)
                 if layer_id in layers:
                     feats.append(x)
                     # print(layer)
             return feats
         else:
-            return self.net(x)
+            return self.dis(x)
 
 
 class ResidualBlock(nn.Module):
