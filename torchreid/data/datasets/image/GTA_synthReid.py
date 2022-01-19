@@ -7,7 +7,6 @@ import os.path as osp
 from typing import Tuple, Union
 import numpy as np
 
-from torchreid.utils.tools import set_random_seed
 from ..dataset import ImageDataset
 
 
@@ -121,12 +120,13 @@ class GTA_synthReid(ImageDataset):
     def _train_val_split(self):
         train_dataset = []
         val_dataset = []
-        # taking self.n_samples pids for validation
+        n_val_pids = 50  # hard coded
+        # taking n_val_pids pids for validation
         val_pids = set(self.train_val_pids[np.random.choice(self.train_val_pids.shape[0],
-                       self.n_samples, replace=False)])
+                       n_val_pids, replace=False)])
         train_pids = dict()
         count = 0
-        assert len(val_pids) == self.n_samples
+        assert len(val_pids) == n_val_pids
         for image in self.train_val:
             if image[1] in val_pids:
                 val_dataset.append(image)
