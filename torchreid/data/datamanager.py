@@ -28,6 +28,7 @@ class DataManager(object):
         self,
         sources=None,
         targets=None,
+        seed=10,
         height=256,
         width=128,
         transforms='random_flip',
@@ -39,6 +40,7 @@ class DataManager(object):
         self.targets = targets
         self.height = height
         self.width = width
+        self.seed = seed
 
         if self.sources is None:
             raise ValueError('sources must not be None')
@@ -182,10 +184,12 @@ class ImageDataManager(DataManager):
         # add option for validation set
         val=False,
         relabel=True,
+        seed=10,
         n_samples=50  # taking only #n_samples images for GTA_synthReid
     ):
 
         super(ImageDataManager, self).__init__(
+            seed=seed,
             sources=sources,
             targets=targets,
             height=height,
@@ -209,6 +213,7 @@ class ImageDataManager(DataManager):
         for name in self.sources:
             trainset_ = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_tr,
                 k_tfm=k_tfm,
                 mode='train',
@@ -261,6 +266,7 @@ class ImageDataManager(DataManager):
             for name in self.targets:
                 trainset_t_ = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_tr,
                     k_tfm=k_tfm,
                     mode='train',
@@ -315,6 +321,7 @@ class ImageDataManager(DataManager):
                 # build query loader
                 val_queryset = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_te,
                     mode='val_query',
                     combineall=combineall,
@@ -341,6 +348,7 @@ class ImageDataManager(DataManager):
                 # build val_gallery loader
                 val_galleryset = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_te,
                     mode='val_gallery',
                     combineall=combineall,
@@ -391,6 +399,7 @@ class ImageDataManager(DataManager):
             # build query loader
             queryset = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='query',
                 combineall=False,
@@ -416,6 +425,7 @@ class ImageDataManager(DataManager):
             # build gallery loader
             galleryset = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='gallery',
                 combineall=False,
@@ -540,11 +550,13 @@ class VideoDataManager(DataManager):
         train_sampler='RandomSampler',
         seq_len=15,
         sample_method='evenly',
+        seed=10,
         verbose=True,
         # TODO: add validation and test relabeling for video datasets
     ):
 
         super(VideoDataManager, self).__init__(
+            seed=seed,
             sources=sources,
             targets=targets,
             height=height,
@@ -562,6 +574,7 @@ class VideoDataManager(DataManager):
         for name in self.sources:
             trainset_ = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_tr,
                 mode='train',
                 combineall=combineall,
@@ -615,6 +628,7 @@ class VideoDataManager(DataManager):
             # build query loader
             queryset = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='query',
                 combineall=combineall,
@@ -635,6 +649,7 @@ class VideoDataManager(DataManager):
             # build gallery loader
             galleryset = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='gallery',
                 combineall=combineall,
