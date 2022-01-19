@@ -1,3 +1,6 @@
+# Private
+*.key
+
 # vscode
 .vscode/
 
@@ -142,6 +145,7 @@ dmypy.json
 # ReID
 reid-data/
 log/
+wandb/
 saved-models/
 model-zoo/
 debug*
