@@ -131,6 +131,7 @@ class ImageAdversarialEngine(Engine):
         if self.weight_sim > 0:
             dis_feats_real = self.models[self.model_names['discriminator']](r_real, self.dis_layers)
             gen_sim_loss = self.calculate_sim_loss(dis_feats_real, dis_feats_fake[:-1]) * self.weight_sim
+            g_loss += gen_sim_loss
             loss['gen_sim_loss'] = gen_sim_loss.item()
 
         # nce loss

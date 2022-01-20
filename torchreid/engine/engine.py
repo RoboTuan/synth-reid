@@ -523,10 +523,10 @@ class Engine(object):
             if self.writer is not None:
                 n_iter = self.epoch * self.num_batches + self.batch_idx
                 for r in ranks:
-                    wandb.log({f'Train/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
+                    wandb.log({f'Test/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
                 self.writer.add_scalar(f'Test/{name}/rank1', rank1, self.epoch)
                 self.writer.add_scalar(f'Test/{name}/mAP', mAP, self.epoch)
-                wandb.log({f'Train/{name}/mAP': mAP}, step=n_iter + 1)
+                wandb.log({f'Test/{name}/mAP': mAP}, step=n_iter + 1)
 
         return rank1
 

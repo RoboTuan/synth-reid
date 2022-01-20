@@ -180,7 +180,7 @@ schedulers = {
 #     print(start_epoch)
 
 try:
-    with open('wandb_api.key', 'r') as file:
+    with open('wandb_adv_api.key', 'r') as file:
         wandb_identity = json.load(file)
 except FileNotFoundError as e:
     print("Create a json file in the root directory of this repo called 'wandb_api.key',\n")
