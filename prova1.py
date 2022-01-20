@@ -2,7 +2,6 @@
 import torchreid
 import torch.nn as nn
 import torchvision
-from torchreid.models import self_sup
 from torchreid.models import Generator, Discriminator
 from torchreid.data.datasets import GTA_synthReid, Market1501
 import torch

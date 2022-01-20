@@ -76,7 +76,6 @@ def make_model(cfg, datamanager):
             pretrained=cfg.model.pretrained,
             use_gpu=cfg.use_gpu,
             last_stride=cfg.model.last_stride,
-            self_sup=cfg.model.self_sup
         )
         models[cfg.model.name] = model
     return models
@@ -196,7 +195,6 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                     use_gpu=cfg.use_gpu,
                     label_smooth=cfg.loss.softmax.label_smooth,
                     val=cfg.data.val,
-                    self_sup=cfg.model.self_sup
                 )
 
             else:
@@ -212,7 +210,6 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                     use_gpu=cfg.use_gpu,
                     label_smooth=cfg.loss.softmax.label_smooth,
                     val=cfg.data.val,
-                    self_sup=cfg.model.self_sup
                 )
 
         else:

@@ -13,7 +13,6 @@ def get_default_config():
     cfg.model.pretrained = True  # automatically load pretrained model weights if available
     cfg.model.load_weights = ''  # path to model weights
     cfg.model.resume = ''  # path to checkpoint for resume training
-    cfg.model.self_sup = False  # self supervised task
     cfg.model.last_stride = 2  # stride of the last conv layer
     cfg.model.adversarial = False  # adversarial training
 
@@ -227,7 +226,6 @@ def optimizer_kwargs(cfg):
         'staged_lr': cfg.train.staged_lr,
         'new_layers': cfg.train.new_layers,
         'base_lr_mult': cfg.train.base_lr_mult,
-        'self_sup': cfg.model.self_sup
     }
 
 

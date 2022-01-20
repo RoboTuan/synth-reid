@@ -78,17 +78,12 @@ class ImageTripletEngine(Engine):
         use_gpu=True,
         label_smooth=True,
         val=False,
-        self_sup=False,
         generator_path=None
     ):
         self.val = val
-        self.self_sup = self_sup
-        if self.self_sup:
-            raise ValueError("Self sup not yet implemented for triplet loss")
 
         super(ImageTripletEngine, self).__init__(datamanager=datamanager,
                                                  val=self.val,
-                                                 self_sup=self.self_sup,
                                                  use_gpu=use_gpu)
 
         self.model_name = model_name
@@ -121,20 +116,6 @@ class ImageTripletEngine(Engine):
             label_smooth=label_smooth
         )
 
-        if self.self_sup:
-            # Multi-GPU attribute access
-            if isinstance(self.model, nn.DataParallel):
-                num_jig_classes = self.model.module.num_jig_classes
-            else:
-                num_jig_classes = self.model.num_jig_classes
-
-            self.jig_criterion = CrossEntropyLoss(
-                num_classes=num_jig_classes,
-                use_gpu=self.use_gpu,
-                # TODO: check if label smooth should be applied also to sel sup task
-                # label_smooth=label_smooth
-            )
-
     def forward_backward(self, data):
         imgs, pids = self.parse_data_for_train(data)
 
@@ -150,27 +131,21 @@ class ImageTripletEngine(Engine):
         #         torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/real.jpg', nrow=8)
         # sys.exit()
 
-        if self.self_sup:
-            outputs, features, jig_outputs, jig_labels = self.model(imgs)
-        else:
-            outputs, features, _ = self.model(imgs)
+        outputs, features, _ = self.model(imgs)
 
         loss = 0
         loss_summary = {}
 
-        if self.self_sup:
-            pass
-        else:
-            if self.weight_t > 0:
-                loss_t = self.compute_loss(self.criterion_t, features, pids)
-                loss += self.weight_t * loss_t
-                loss_summary['loss_t'] = loss_t.item()
+        if self.weight_t > 0:
+            loss_t = self.compute_loss(self.criterion_t, features, pids)
+            loss += self.weight_t * loss_t
+            loss_summary['loss_t'] = loss_t.item()
 
-            if self.weight_x > 0:
-                loss_x = self.compute_loss(self.criterion_x, outputs, pids)
-                loss += self.weight_x * loss_x
-                loss_summary['loss_x'] = loss_x.item()
-                loss_summary['acc'] = metrics.accuracy(outputs, pids)[0].item()
+        if self.weight_x > 0:
+            loss_x = self.compute_loss(self.criterion_x, outputs, pids)
+            loss += self.weight_x * loss_x
+            loss_summary['loss_x'] = loss_x.item()
+            loss_summary['acc'] = metrics.accuracy(outputs, pids)[0].item()
 
             assert loss_summary
 

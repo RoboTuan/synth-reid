@@ -1,7 +1,6 @@
 # from random import random
 import torchreid
 import torch.nn as nn
-from torchreid.models import self_sup
 import torch
 from itertools import repeat
 from torchreid.utils import set_random_seed, load_pretrained_weights, resume_from_checkpoint

@@ -1,7 +1,6 @@
 # from random import random
 import torchreid
 import torch.nn as nn
-from torchreid.models import self_sup
 # import torch
 from torchreid.utils import set_random_seed, load_pretrained_weights, max_ham_permutations
 # from torchreid.utils import load_pretrained_weights

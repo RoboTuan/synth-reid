@@ -24,7 +24,6 @@ def build_optimizer(
     staged_lr=False,
     new_layers='',
     base_lr_mult=0.1,
-    self_sup=False
 ):
     """A function wrapper for building an optimizer.
 
@@ -95,76 +94,33 @@ def build_optimizer(
         base_layers = []
         new_params = []
 
-        if self_sup:
-            backbone_new_layers = []
-            self_sup_new_layers = []
+        # print(model_name)
+        # support for bnneck
+        if model_name == 'bnneck':
+            model = model.base
 
-            for layer in new_layers:
-                # print(layer)
-                if layer.split(".")[0] == 'backbone':
-                    assert hasattr(
-                        model.backbone, layer.split(".")[1]
-                    ), '"{}" is not an attribute of the model, please provide the correct name'.format(
-                        layer
-                    )
-                    backbone_new_layers.append(layer.split(".")[1])
-                else:
-                    assert hasattr(
-                        model.jig_saw_puzzle, layer.split(".")[1]
-                    ), '"{}" is not an attribute of the model, please provide the correct name'.format(
-                        layer
-                    )
-                    self_sup_new_layers.append(layer.split(".")[1])
+        for layer in new_layers:
+            assert hasattr(
+                model, layer
+            ), '"{}" is not an attribute of the model, please provide the correct name'.format(
+                layer
+            )
 
-            # print(backbone_new_layers, self_sup_new_layers)
-
-            for name, module in model.named_children():
-                if name == 'backbone':
-                    for name, module in model.backbone.named_children():
-                        # print(name)
-                        if name in backbone_new_layers:
-                            # print(name)
-                            new_params += [p for p in module.parameters()]
-                        else:
-                            base_params += [p for p in module.parameters()]
-                            base_layers.append(name)
-                else:
-                    for name, module in model.jig_saw_puzzle.named_children():
-                        # print(name)
-                        if name in self_sup_new_layers:
-                            new_params += [p for p in module.parameters()]
-                        else:
-                            base_params += [p for p in module.parameters()]
-                            base_layers.append(name)
-
-        else:
-            # print(model_name)
-            # support for bnneck
-            if model_name == 'bnneck':
-                model = model.base
-
-            for layer in new_layers:
-                assert hasattr(
-                    model, layer
-                ), '"{}" is not an attribute of the model, please provide the correct name'.format(
-                    layer
-                )
-
-            for name, module in model.named_children():
+        for name, module in model.named_children():
+            # print(name)
+            if name in new_layers:
                 # print(name)
-                if name in new_layers:
-                    # print(name)
-                    new_params += [p for p in module.parameters()]
-                else:
-                    base_params += [p for p in module.parameters()]
-                    base_layers.append(name)
+                new_params += [p for p in module.parameters()]
+            else:
+                base_params += [p for p in module.parameters()]
+                base_layers.append(name)
         # print()
         # print(new_params)
         # print(base_layers)
         # print(base_params)
         # sys.exit()
 
-        # print("yolo")
+        # print("")
         # print(base_layers, new_params)
 
         param_groups = [

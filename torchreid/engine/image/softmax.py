@@ -4,7 +4,6 @@ import torch.nn as nn
 
 from torchreid import metrics
 from torchreid.losses import CrossEntropyLoss
-# from torchreid.models.self_sup import SelfSup
 
 from ..engine import Engine
 
@@ -21,11 +20,6 @@ class ImageSoftmaxEngine(Engine):
         use_gpu (bool, optional): use gpu. Default is True.
         label_smooth (bool, optional): use label smoothing regularizer. Default is True.
         val (bool, optional): set to True if a validation set is used from part of the training set.
-        self_sup (bool, optional): set to True if the 'jig-saw puzzle' self supervised task is used.
-        lambda_id (float, optional): if self_sup is True, this parameter controls the weight of the
-            classification loss.
-        lambda_ss (float, optional): if self_sup is True, this parameter controls the weight of the
-            self supervised loss.
 
     Examples::
 
@@ -72,23 +66,11 @@ class ImageSoftmaxEngine(Engine):
         use_gpu=True,
         label_smooth=True,
         val=False,
-        self_sup=False,
-        lambda_id=1,
-        lambda_ss=1
     ):
         self.val = val
-        self.self_sup = self_sup
-        self.lambda_id = lambda_id
-        self.lambda_ss = lambda_ss
-
-        # if alpha > 1 or alpha < 0:
-        #     raise ValueError("The value of 'alpha' should be set from 0 to 1")
-        # else:
-        #     self.alpha = alpha
 
         super(ImageSoftmaxEngine, self).__init__(datamanager=datamanager,
                                                  val=self.val,
-                                                 self_sup=self.self_sup,
                                                  lambda_id=self.lambda_id,
                                                  lambda_ss=self.lambda_ss,
                                                  use_gpu=use_gpu)
@@ -105,20 +87,6 @@ class ImageSoftmaxEngine(Engine):
             label_smooth=label_smooth
         )
 
-        if self.self_sup:
-            # Multi-GPU attribute access
-            if isinstance(self.model, nn.DataParallel):
-                num_jig_classes = self.model.module.num_jig_classes
-            else:
-                num_jig_classes = self.model.num_jig_classes
-
-            self.jig_criterion = CrossEntropyLoss(
-                num_classes=num_jig_classes,
-                use_gpu=self.use_gpu,
-                # TODO: check if label smooth should be applied also to sel sup task
-                # label_smooth=label_smooth
-            )
-
     def forward_backward(self, data):
         imgs, pids = self.parse_data_for_train(data)
 
@@ -126,13 +94,7 @@ class ImageSoftmaxEngine(Engine):
             imgs = imgs.cuda()
             pids = pids.cuda()
 
-        if self.self_sup:
-            outputs, jig_outputs, jig_labels = self.model(imgs)
-            # print("self sup output length: ", len(outputs))
-            # print("self sup output: ", outputs)
-            jig_loss = self.compute_loss(self.criterion, jig_outputs, jig_labels)
-        else:
-            outputs, _ = self.model(imgs)
+        outputs, _ = self.model(imgs)
 
         # print(len(outputs))
         # print(outputs)
@@ -145,26 +107,11 @@ class ImageSoftmaxEngine(Engine):
         # print(loss)
 
         self.optimizer.zero_grad()
-        if self.self_sup:
-            tot_loss = self.lambda_id * loss + self.lambda_ss * jig_loss
-            tot_loss.backward()
-        else:
-            loss.backward()
+        loss.backward()
         self.optimizer.step()
 
-        if self.self_sup:
-            loss_summary = {
-                'loss': loss.item(),
-                'jig_loss': jig_loss.item(),
-                'tot_loss': tot_loss.item(),
-                # add accuracy for self sup task
-                'acc': metrics.accuracy(outputs, pids)[0].item()
-
-            }
-        else:
-            loss_summary = {
-                'loss': loss.item(),
-                'acc': metrics.accuracy(outputs, pids)[0].item()
-            }
-
+        loss_summary = {
+            'loss': loss.item(),
+            'acc': metrics.accuracy(outputs, pids)[0].item()
+        }
         return loss_summary

@@ -33,19 +33,16 @@ class ImageAdversarialEngine(Engine):
         schedulers=None,
         use_gpu=True,
         val=False,
-        self_sup=False,
         lambda_id=1,
         lambda_ss=1,
     ):
         self.val = val
-        self.self_sup = self_sup
         self.lambda_id = lambda_id
         self.lambda_ss = lambda_ss
         self.adversarial = True
 
         super(ImageAdversarialEngine, self).__init__(datamanager=datamanager,
                                                      val=self.val,
-                                                     self_sup=self.self_sup,
                                                      lambda_id=self.lambda_id,
                                                      lambda_ss=self.lambda_ss,
                                                      use_gpu=use_gpu,

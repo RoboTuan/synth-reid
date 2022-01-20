@@ -34,7 +34,6 @@ class Engine(object):
             self,
             datamanager,
             val=False,
-            self_sup=False,
             lambda_id=1,
             lambda_ss=1,
             use_gpu=True,
@@ -42,7 +41,6 @@ class Engine(object):
     ):
         self.datamanager = datamanager
         self.val = val
-        self.self_sup = self_sup
         self.adversarial = adversarial
         self.lambda_id = lambda_id
         self.lambda_ss = lambda_ss
@@ -53,10 +51,6 @@ class Engine(object):
         self.use_gpu = (torch.cuda.is_available() and use_gpu)
         self.writer = None
         self.epoch = 0
-
-        if self.self_sup:
-            print(f"Weight of classification loss: {self.lambda_id}")
-            print(f"Weight of self sup loss: {self.lambda_ss}")
 
         self.model = None
         self.model_name = None
@@ -703,6 +697,6 @@ class Engine(object):
                 )
             )
             # print(self.model_name)
-            open_specified_layers(self.model_name, model, open_layers, self.self_sup)
+            open_specified_layers(self.model_name, model, open_layers)
         else:
             open_all_layers(model)

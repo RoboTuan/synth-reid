@@ -2,7 +2,6 @@ from __future__ import absolute_import
 # from torchreid.models.backbones.ft_net import ft_net
 
 from .backbones import *
-from .self_sup import SelfSup
 from .adversarial_model import make_discriminator, make_generator, make_id_net
 #from .models import *
 
@@ -84,7 +83,7 @@ def show_avai_models():
 #     name, num_classes, loss='softmax', pretrained=True, use_gpu=True, ft_net=False
 # ):
 def build_model(
-    name='model', num_classes=None, loss='softmax', pretrained=True, use_gpu=True, self_sup=False, adversarial=False, **kwargs
+    name='model', num_classes=None, loss='softmax', pretrained=True, use_gpu=True, adversarial=False, **kwargs
 ):
     """A function wrapper for building a model.
 
@@ -113,19 +112,13 @@ def build_model(
     if not adversarial:
         # if ft_net :
         #     return models.ft_net(num_classes)
-        backbone = __model_factory[name](
+        model = __model_factory[name](
             num_classes=num_classes,
             loss=loss,
             pretrained=pretrained,
             use_gpu=use_gpu,
             **kwargs
         )
-
-        if self_sup:
-            model = SelfSup(backbone, 2, 4, **kwargs)
-        else:
-            model = backbone
-
         return model
     else:
         # 'S' means synthetic, 'R' means real

@@ -396,13 +396,6 @@ class ImageDataset(Dataset):
             'impath': img_path,
             'dsetid': dsetid
         }
-        # if self.self_sup:
-        #     rotations = [0, 90, 180, 270]
-        #     rnd_rot = random.choice(rotations)
-        #     img = rotate_img(img, rnd_rot)
-        #     # item.update(item_tasks)
-        #     item['img'] = img
-        #     item['rot'] = rnd_rot
         return item
 
     def show_summary(self):
