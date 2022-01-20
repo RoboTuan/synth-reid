@@ -439,16 +439,17 @@ class Engine(object):
             if self.writer is not None:
                 # n_iter = self.epoch * self.num_batches + self.batch_idx
                 # print(n_iter)
+                wandb.log({'Train_info/Epochs': self.epoch + 1}, step=n_iter + 1)
                 self.writer.add_scalar('Train/time', batch_time.avg, n_iter)
-                wandb.log({'Train/time': batch_time.avg}, step=n_iter + 1)
+                wandb.log({'Train_info/time': batch_time.avg}, step=n_iter + 1)
                 self.writer.add_scalar('Train/data', data_time.avg, n_iter)
-                wandb.log({'Train/data': data_time.avg}, step=n_iter + 1)
+                wandb.log({'Train_info/data': data_time.avg}, step=n_iter + 1)
                 for name, meter in losses.meters.items():
                     self.writer.add_scalar('Train/' + name, meter.avg, n_iter)
-                    wandb.log({'Train/' + name: meter.avg}, step=n_iter + 1)
+                    wandb.log({'Train_loss/' + name: meter.avg}, step=n_iter + 1)
                 for lr in self.get_current_lr():
                     self.writer.add_scalar(('Train/lr_' + lr[0]), lr[1], n_iter)
-                    wandb.log({'Train/lr_' + lr[0]: lr[1]}, step=n_iter + 1)
+                    wandb.log({'Train_lr/lr_' + lr[0]: lr[1]}, step=n_iter + 1)
 
             end = time.time()
         self.update_lr()
@@ -509,7 +510,7 @@ class Engine(object):
                 query_loader = self.test_loader[name]['query']
                 gallery_loader = self.test_loader[name]['gallery']
 
-            rank1, mAP = self._evaluate(
+            cmc, mAP = self._evaluate(
                 dataset_name=name,
                 query_loader=query_loader,
                 gallery_loader=gallery_loader,
@@ -524,9 +525,14 @@ class Engine(object):
                 flip=flip
             )
 
+            rank1 = cmc[0]
             if self.writer is not None:
+                n_iter = self.epoch * self.num_batches + self.batch_idx
+                for r in ranks:
+                    wandb.log({f'Train/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
                 self.writer.add_scalar(f'Test/{name}/rank1', rank1, self.epoch)
                 self.writer.add_scalar(f'Test/{name}/mAP', mAP, self.epoch)
+                wandb.log({f'Train/{name}/mAP': mAP}, step=n_iter + 1)
 
         return rank1
 
@@ -637,7 +643,8 @@ class Engine(object):
                 topk=visrank_topk
             )
 
-        return cmc[0], mAP
+        # return cmc[0], mAP
+        return cmc, mAP
 
     def compute_loss(self, criterion, outputs, targets):
         if isinstance(outputs, (tuple, list)):
