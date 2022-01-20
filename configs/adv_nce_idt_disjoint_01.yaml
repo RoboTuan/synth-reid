@@ -45,16 +45,16 @@ train:
   generator_optim: 'adam'
   discriminator_optim: 'adam'
   lr: 1e-4
-  generator_lr: 2e-3
-  discriminator_lr: 2e-3
-  feature_net_lr: 2e-3
+  generator_lr: 2e-4
+  discriminator_lr: 2e-4
+  feature_net_lr: 2e-4
   weight_decay: 5e-4
-  generator_weight_decay: 5e-2
+  generator_weight_decay: 5e-4
   discriminator_weight_decay: 5e-4
   feature_net_weight_decay: 5e-4
   max_epoch: 30
   batch_size: 8
-  print_freq: 250
+  print_freq: 500
   lr_scheduler: 'multi_step'
   generator_lr_scheduler: 'multi_step'
   discriminator_lr_scheduler: 'multi_step'
