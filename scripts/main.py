@@ -445,15 +445,19 @@ def main():
                 cfg.train.start_epoch = resume_from_checkpoint(
                     path, models[name], optimizer=optimizers[name], scheduler=schedulers[name]
                 )
-
+    if cfg.model.adversarial is True:
+        file_name = 'wandb_adv_api.key'
+    else:
+        file_name = 'wandb_base_api.key'
     try:
-        with open('wandb_api.key', 'r') as file:
+        with open(file_name, 'r') as file:
             wandb_identity = json.load(file)
     except FileNotFoundError as e:
-        print("Create a json file in the root directory of this repo called 'wandb_api.key',\n")
+        print("Create a json file in the root directory of this repo called 'wandb_adv_api.key'\
+                or 'wandb_base_api.key',\n")
         print("it must have as keys the 'entity', 'project' and 'api-key' of your wandb account.\n")
         print("For the entity you can put yours or that of a team,\
-        for the project put a project name (e.g. adversarial_ReId")
+                for the project put a project name (e.g. adversarial_ReId")
         raise(e)
     wandb.login(anonymous='never', relogin=True, timeout=30, key=wandb_identity['key'])
     relevant_hyperparams = make_wandb_config(cfg)
