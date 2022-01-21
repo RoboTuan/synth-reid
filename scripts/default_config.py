@@ -79,6 +79,7 @@ def get_default_config():
     cfg.train.feature_net_weight_decay = 5e-4
     cfg.train.feature_net_nc = 256
     cfg.train.max_epoch = 60
+    cfg.train.epoch_id = 1
     cfg.train.start_epoch = 0
     cfg.train.batch_size = 32
     cfg.train.fixbase_epoch = 0  # number of epochs to fix base layers
@@ -128,6 +129,7 @@ def get_default_config():
     cfg.loss.adversarial.weight_dis = 0.5  # weight to balance discriminator losses
     cfg.loss.adversarial.weight_sim = 0.  # weight to balance feature similarity loss
     cfg.loss.adversarial.weight_x = 1.  # weight to balance cross entropy loss
+    cfg.loss.adversarial.weight_t = 0.  # weight to balance triplet loss
     cfg.loss.adversarial.guide_gen = False  # use updates of the convnet to guide the generator
     cfg.loss.adversarial.sim_type_loss = 'feat_match'  # type of similarity loss
     cfg.loss.adversarial.nce_layers = [0, 2, 3, 4, 8]  # generator layers for nce loss

@@ -7,8 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchreid.models.backbones.resnet import BasicBlock, conv1x1
-from torchreid.optim import build_lr_scheduler, build_optimizer
-from torchreid.utils import weights_init_kaiming
 import sys
 
 
@@ -221,6 +219,8 @@ class Id_Net(nn.Module):
             BasicBlock(in_channels * 4, in_channels * 8, 2, conv1x1(in_channels * 4, in_channels * 8, 2)),
         )
         self.global_avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.bottleneck = nn.BatchNorm1d(in_channels * 8)
+        self.bottleneck.bias.requires_grad_(False)  # no shift
         self.flatten = nn.Flatten(1)
         self.classifier = nn.Linear(2048, n_identities)
 
@@ -228,7 +228,8 @@ class Id_Net(nn.Module):
         feats = self.layers(x)
         global_feats = self.global_avgpool(feats)
         global_feats = self.flatten(global_feats)
+        global_feats_norm = self.bottleneck(global_feats)
         if not self.training:
-            return global_feats
-        out = self.classifier(global_feats)
-        return out
+            return global_feats_norm
+        out = self.classifier(global_feats_norm)
+        return out, global_feats

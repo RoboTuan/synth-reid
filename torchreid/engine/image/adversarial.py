@@ -5,11 +5,8 @@ import torch
 import sys
 
 from torchreid import metrics
-from torchreid.utils import ReplayBuffer
 from ..engine import Engine
-from torchreid.losses import PatchNCELoss, CrossEntropyLoss, SimLoss
-from torchreid.utils.torchtools import plot_grad_flow
-import wandb
+from torchreid.losses import PatchNCELoss, CrossEntropyLoss, SimLoss, TripletLoss
 
 
 class ImageAdversarialEngine(Engine):
@@ -43,6 +40,8 @@ class ImageAdversarialEngine(Engine):
         weight_dis=0.5,
         weight_sim=0,
         weight_x=1.,
+        weight_t=0.,
+        epoch_id=1,
         sim_type_loss='feat_match',
         guide_gen=False,
         nce_layers=[0, 2, 3, 4, 8],
@@ -63,8 +62,10 @@ class ImageAdversarialEngine(Engine):
         self.weight_dis = weight_dis
         self.weight_sim = weight_sim
         self.weight_x = weight_x
+        self.weight_t = weight_t
         self.guide_gen = guide_gen
         self.sim_type_loss = sim_type_loss
+        self.epoch_id = epoch_id
 
         # optimizers = {
         #   generator: OPTg,
@@ -76,8 +77,6 @@ class ImageAdversarialEngine(Engine):
         self.optimizers = optimizers
         self.schedulers = schedulers
 
-        self.s_fake_pool = ReplayBuffer()
-        self.r_fake_pool = ReplayBuffer()
         self.nce_layers = nce_layers
         self.num_patches = num_patches
         self.dis_layers = dis_layers
@@ -100,6 +99,7 @@ class ImageAdversarialEngine(Engine):
         self.MSE = nn.MSELoss()
         self.criterionNCE = [PatchNCELoss(batch_size).cuda() for _ in self.nce_layers]
         self.simLoss = SimLoss(sim_type_loss)
+        self.criterion_t = TripletLoss(margin=0.3)
         self.criterion = CrossEntropyLoss(
             num_classes=self.datamanager.num_train_pids,
             use_gpu=self.use_gpu,
@@ -160,14 +160,18 @@ class ImageAdversarialEngine(Engine):
                 loss['idt_nce_loss'] = idt_nce_loss.item()
                 g_loss += idt_nce_loss
 
-        if self.guide_gen is True and self.weight_x > 0:
+        if self.guide_gen is True and self.weight_x > 0 and (self.epoch + 1) >= self.epoch_id:
             self.models[self.model_names['convnet']].zero_grad()
             # Re-Id loss guiding the generator
-            r_fake_outputs = self.models[self.model_names['convnet']](r_fake_features[0])
+            r_fake_outputs, trip_feats = self.models[self.model_names['convnet']](r_fake_features[0])
             reid_loss = self.compute_loss(self.criterion, r_fake_outputs, s_pids) * self.weight_x
             loss['reid_loss'] = reid_loss.item()
             g_loss += reid_loss
             loss['acc'] = metrics.accuracy(r_fake_outputs, s_pids)[0].item()
+            if self.weight_t > 0:
+                t_reid_loss = self.compute_loss(self.criterion_t, trip_feats, s_pids) * self.weight_t
+                loss['t_reid_loss'] = t_reid_loss.item()
+                g_loss += t_reid_loss
 
         # loss
         g_loss.backward()
@@ -214,15 +218,19 @@ class ImageAdversarialEngine(Engine):
         dis_loss.backward()
         self.optimizers[self.model_names['discriminator']].step()
 
-        if not self.guide_gen and self.weight_x > 0:
+        if not self.guide_gen and self.weight_x > 0 and (self.epoch + 1) >= self.epoch_id:
             # Re-Id loss independent of the generator
             self.models[self.model_names['convnet']].zero_grad()
             r_fake_features = r_fake_features[0].detach()
             # r_fake_features = self.models[self.model_names['generator']](r_fake, feat_extractor=True)
-            r_fake_outputs = self.models[self.model_names['convnet']](r_fake_features)
+            r_fake_outputs, trip_feats = self.models[self.model_names['convnet']](r_fake_features)
             reid_loss = self.compute_loss(self.criterion, r_fake_outputs, s_pids) * self.weight_x
             loss['reid_loss'] = reid_loss.item()
             loss['acc'] = metrics.accuracy(r_fake_outputs, s_pids)[0].item()
+            if self.weight_t > 0:
+                t_reid_loss = self.compute_loss(self.criterion_t, trip_feats, s_pids) * self.weight_t
+                loss['t_reid_loss'] = t_reid_loss.item()
+                reid_loss += t_reid_loss
             reid_loss.backward()
             self.optimizers[self.model_names['convnet']].step()
 

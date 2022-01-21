@@ -34,8 +34,8 @@ datamanager = torchreid.data.ImageDataManager(
     load_train_targets=True,
     norm_mean=[0.5] * 3,
     norm_std=[0.5] * 3,
-    # train_sampler='RandomDatasetSampler',
-    # num_instances=2
+    train_sampler='RandomIdentitySampler',
+    num_instances=4,
     n_samples=20  # taking only at max 20 images per identity for GTA_synthReid
 )
 # sys.exit()
@@ -202,14 +202,24 @@ engine = torchreid.engine.ImageAdversarialEngine(
     optimizers=optimizers,
     schedulers=schedulers,
     val=False,
+    weight_idt=0.
 )
+
+# open_layers = {
+#     generator_S2R_name: None,
+#     discriminator_R_name: None,
+#     feature_net_name: None,
+#     convnet_name: []
+# }
 
 engine.run(
     # start_epoch=start_epoch,
-    save_dir='log/adversarial_prova',
+    save_dir='log/prova',
     max_epoch=30,
     eval_freq=10,
-    print_freq=50,
+    print_freq=500,
+    # fixbase_epoch=10,
+    # open_layers=open_layers
 )
 
 # load_pretrained_weights(model, 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30')
