@@ -131,7 +131,7 @@ class ImageTripletEngine(Engine):
         #         torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/real.jpg', nrow=8)
         # sys.exit()
 
-        outputs, features, _ = self.model(imgs)
+        outputs, features = self.model(imgs)
 
         loss = 0
         loss_summary = {}
