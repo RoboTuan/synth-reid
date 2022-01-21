@@ -19,17 +19,18 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/adv_nce_idt_disjoint_01'
+  save_dir: 'log/adv_nce_tri_disjoint_01'
   n_samples: 20
 
 loss:
     adversarial:
       weight_nce: 0.5
-      weight_idt: 0.5
+      weight_idt: 0.
       weight_gen: 1.
       weight_dis: 0.5
       weight_sim: 0.
       weight_x: 1.
+      weight_t: 1.
       sim_type_loss: 'feat_match'
       guide_gen: False
       nce_layers: [0, 2, 3, 4, 8]
@@ -37,7 +38,8 @@ loss:
       num_patches: 256
 
 sampler:
-  train_sampler: RandomSampler
+  train_sampler: 'RandomIdentitySampler'
+  num_instances: 4
 
 train:
   optim: 'adam'
@@ -47,20 +49,20 @@ train:
   generator_lr: 2e-4
   discriminator_lr: 2e-4
   feature_net_lr: 2e-4
-  weight_decay: 5e-4
+  weight_decay: 5e-2
   generator_weight_decay: 5e-4
   discriminator_weight_decay: 5e-4
   feature_net_weight_decay: 5e-4
-  max_epoch: 30
+  max_epoch: 60
   batch_size: 8
   print_freq: 500
   lr_scheduler: 'multi_step'
   generator_lr_scheduler: 'multi_step'
   discriminator_lr_scheduler: 'multi_step'
-  stepsize: [10, 20]
-  generator_stepsize: [10, 20]
-  discriminator_stepsize: [10, 20]
-  feature_net_stepsize: [10, 20]
+  stepsize: [15, 25, 40]
+  generator_stepsize: [15, 25, 40]
+  discriminator_stepsize: [15, 25, 40]
+  feature_net_stepsize: [15, 25, 40]
   feature_net_nc: 256
   seed: 10
 
