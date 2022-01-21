@@ -165,11 +165,10 @@ class BNNeck(nn.Module):
 
         if self.training:
             cls_score = self.base.classifier(feat)
-            # return last feature map 'x' for self supervised
             if self.loss == 'softmax':
-                return cls_score, x
+                return cls_score
             elif self.loss == 'triplet':
-                return cls_score, global_feat, x  # global feature for triplet loss
+                return cls_score, global_feat
             else:
                 raise KeyError("Unsupported loss: {}".format(self.loss))
         else:
