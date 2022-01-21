@@ -262,6 +262,7 @@ class ImageDataManager(DataManager):
                 'sources={} and targets={} must not have overlap'.format(self.sources, self.targets)
 
             print('=> Loading train (target) dataset')
+            print('Sampler for this dataset is RandomSampler')
             trainset_t = []
             for name in self.targets:
                 trainset_t_ = init_image_dataset(
@@ -288,7 +289,7 @@ class ImageDataManager(DataManager):
                 trainset_t,
                 sampler=build_train_sampler(
                     trainset_t.train,
-                    train_sampler_t,
+                    "RandomSampler",
                     batch_size=batch_size_train,
                     num_instances=num_instances,
                     num_cams=num_cams,
