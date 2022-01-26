@@ -15,15 +15,12 @@ data:
   width: 128
   combineall: False
   transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
-  save_dir: 'log/im_bnneck_triplet_val_multi_01'
+  save_dir: 'log/im_bnneck_triplet_val_warm_02'
 
 loss:
   name: 'triplet'
   softmax:
-    label_smooth: False
-
-sgd:
-  nesterov: True
+    label_smooth: True
 
 sampler:
   train_sampler: RandomIdentitySampler
@@ -31,18 +28,10 @@ sampler:
 train:
   optim: 'adam'
   lr: 2.5e-4  # 1e-5
-  weight_decay: 5e-4  # 5e-1
-  # staged_lr: True
+  weight_decay: 5e-2  # 5e-1
   max_epoch: 60
   batch_size: 32
   print_freq: 400
-  # fixbase_epoch: 30
-  # open_layers: [
-  #   'layer2',
-  #   'layer3',
-  #   'layer4',
-  #   'classifier',
-  # ]
   lr_scheduler: 'warmup_multi_step'
   stepsize: [20, 30, 40]
 
