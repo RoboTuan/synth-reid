@@ -28,6 +28,7 @@ datamanager = torchreid.data.ImageDataManager(
     # transforms=None,
     transforms=['random_flip', 'random_crop_translate'],
     val=False,
+    adversarial=True,
     combineall=True,
     seed=seed,
     # workers=4,
@@ -191,9 +192,10 @@ except FileNotFoundError as e:
 wandb.login(anonymous='never', relogin=True, timeout=30, key=wandb_identity['key'])
 wandb.init(resume=False,
            # sync_tensorboard=True,
+           mode="disabled",
            project=wandb_identity['project'],
            entity=wandb_identity['entity'],
-           name="prova")
+           name="prova1")
 
 engine = torchreid.engine.ImageAdversarialEngine(
     datamanager,
@@ -202,7 +204,8 @@ engine = torchreid.engine.ImageAdversarialEngine(
     optimizers=optimizers,
     schedulers=schedulers,
     val=False,
-    weight_idt=0.
+    weight_idt=0.,
+    weight_t=1.
 )
 
 # open_layers = {
@@ -214,9 +217,9 @@ engine = torchreid.engine.ImageAdversarialEngine(
 
 engine.run(
     # start_epoch=start_epoch,
-    save_dir='log/prova',
-    max_epoch=30,
-    eval_freq=10,
+    save_dir='log/prova1',
+    max_epoch=2,
+    eval_freq=1,
     print_freq=500,
     # fixbase_epoch=10,
     # open_layers=open_layers
