@@ -72,7 +72,9 @@ class TestLeak(unittest.TestCase):
                 'query': set(),
                 'gallery': set()
             }
-
+            # Add the distractor id to the query
+            if target == 'market1501':
+                test_pids['query'].add(0)
             for mode in ['query', 'gallery']:
                 for data in test_loader[target][mode]:
                     test_pids[mode].update(data['pid'].numpy())
