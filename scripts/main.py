@@ -149,9 +149,9 @@ def make_scheduler(cfg, optimizers):
 
 def make_engine(cfg, datamanager, models, optimizers, schedulers):
     if cfg.model.adversarial is True:
-        if cfg.data.val is True:
-            print("For domain adaptation there are no validation sets")
-            raise ValueError
+        # if cfg.data.val is True:
+        #     print("For domain adaptation there are no validation sets")
+        #     raise ValueError
         if cfg.data.type == 'image':
             model_names = {
                 'generator': cfg.model.generator_name,
@@ -168,6 +168,7 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                 optimizers=optimizers,
                 schedulers=schedulers,
                 use_gpu=cfg.use_gpu,
+                val=cfg.data.val,
                 epoch_id=cfg.train.epoch_id,
                 weight_nce=cfg.loss.adversarial.weight_nce,
                 weight_idt=cfg.loss.adversarial.weight_idt,
@@ -180,7 +181,7 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                 guide_gen=cfg.loss.adversarial.guide_gen,
                 nce_layers=cfg.loss.adversarial.nce_layers,
                 dis_layers=cfg.loss.adversarial.dis_layers,
-                num_patches=cfg.loss.adversarial.num_patches
+                num_patches=cfg.loss.adversarial.num_patches,
             )
         else:
             print("Adversairal training implemented only for image datasets")
@@ -223,7 +224,7 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                     scheduler=schedulers['scheduler'],
                     use_gpu=cfg.use_gpu,
                     label_smooth=cfg.loss.softmax.label_smooth,
-                    pooling_method=cfg.video.pooling_method
+                    pooling_method=cfg.video.pooling_method,
                 )
 
             else:
@@ -236,7 +237,7 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                     weight_x=cfg.loss.triplet.weight_x,
                     scheduler=schedulers['scheduler'],
                     use_gpu=cfg.use_gpu,
-                    label_smooth=cfg.loss.softmax.label_smooth
+                    label_smooth=cfg.loss.softmax.label_smooth,
                 )
 
     return engine
@@ -277,11 +278,13 @@ def make_wandb_config(cfg):
     config['optim'] = cfg.train.optim
     config['weight_decay'] = cfg.train.weight_decay
     config['lr_scheduler'] = cfg.train.lr_scheduler
-    config['cfg.train.stepsize'] = cfg.train.stepsize
+    config['stepsize'] = cfg.train.stepsize
     config['gamma'] = cfg.train.gamma
     config['epochs'] = cfg.train.max_epoch
     config['batch_size'] = cfg.train.batch_size
     config['seed'] = cfg.train.seed
+    if cfg.train.lr_scheduler == 'warmup_multi_step':
+        config['warmup_iters'] = cfg.train.warmup_iters
     if cfg.train.fixbase_epoch > 0:
         config['fixbase_epoch'] = cfg.train.fixbase_epoch
         config['open_layers'] = cfg.train.open_layers
@@ -350,6 +353,12 @@ def main():
         '--config-file', type=str, default='', help='path to config file'
     )
     parser.add_argument(
+        '--run_id', type=str, default='', help='wandb run id to resume the training or to test'
+    )
+    parser.add_argument(
+        '--mode', type=str, default='', help='wandb mode for disabling logs'
+    )
+    parser.add_argument(
         '-s',
         '--sources',
         type=str,
@@ -386,6 +395,8 @@ def main():
     set_random_seed(cfg.train.seed)
     check_cfg(cfg)
 
+    run_id = args.run_id
+    mode = args.mode
     run_name = args.config_file.split("/")[-1].split(".")[0]
     log_name = 'test.log' if cfg.test.evaluate else 'train.log'
     log_name += time.strftime('-%Y-%m-%d-%H-%M-%S')
@@ -395,8 +406,8 @@ def main():
     print('Collecting env info ...')
     print('** System info **\n{}\n'.format(collect_env_info()))
 
-    if cfg.use_gpu:
-        torch.backends.cudnn.benchmark = True
+    # if cfg.use_gpu:
+    #     torch.backends.cudnn.benchmark = True
 
     datamanager = make_datamanager(cfg)
     print("Training classes: ", datamanager.num_train_pids)
@@ -429,24 +440,24 @@ def main():
     schedulers = make_scheduler(cfg, optimizers)
 
     if cfg.model.resume and check_isfile(cfg.model.resume):
-        if cfg.model.adversarial is True:
-            for name in models.keys():
-                if name == 'mlp':
-                    dummy_feats = [torch.rand((1, 3)), torch.rand((1, 128))]
-                    dummy_feats.extend([torch.rand((1, 256))] * 3)
-                    models[name].module.create_mlp(dummy_feats)
-                    optimizer_mlp, scheduler_mlp = models[name].module.optim_sched()
-                    optimizers['mlp'] = optimizer_mlp
-                    schedulers['mlp'] = scheduler_mlp
+        # if cfg.model.adversarial is True:
+        for name in models.keys():
+            if name == 'mlp':
+                dummy_feats = [torch.rand((1, 3)), torch.rand((1, 128))]
+                dummy_feats.extend([torch.rand((1, 256))] * 3)
+                models[name].module.create_mlp(dummy_feats)
+                optimizer_mlp, scheduler_mlp = models[name].module.optim_sched()
+                optimizers['mlp'] = optimizer_mlp
+                schedulers['mlp'] = scheduler_mlp
 
-                if cfg.model.adversarial is True:
-                    path = cfg.model.resume.split('generator')[0] + name + cfg.model.resume.split('generator')[1]
-                else:
-                    path = cfg.model.resume
+            if cfg.model.adversarial is True:
+                path = cfg.model.resume.split('generator')[0] + name + cfg.model.resume.split('generator')[1]
+            else:
+                path = cfg.model.resume
 
-                cfg.train.start_epoch = resume_from_checkpoint(
-                    path, models[name], optimizer=optimizers[name], scheduler=schedulers[name]
-                )
+            cfg.train.start_epoch = resume_from_checkpoint(
+                path, models[name], optimizer=optimizers[name], scheduler=schedulers[name]
+            )
     if cfg.model.adversarial is True:
         file_name = 'wandb_adv_api.key'
     else:
@@ -464,13 +475,17 @@ def main():
     wandb.login(anonymous='never', relogin=True, timeout=30, key=wandb_identity['key'])
     relevant_hyperparams = make_wandb_config(cfg)
     # wandb.config = relevant_hyperparams
-    wandb.init(resume=False if cfg.model.resume == '' else True,
+    mode = "disabled" if cfg.test.evaluate is True else mode
+    wandb.init(resume=True if (cfg.model.resume != '' or cfg.model.load_weights != '') else False,
                # sync_tensorboard=True,
+               mode=mode if mode != "" else None,
+               id=run_id if run_id != "" else None,
                config=relevant_hyperparams,
                project=wandb_identity['project'],
                entity=wandb_identity['entity'],
                name=run_name)
     # wandb.watch(models['id_net'].module, log='all', log_freq=1)
+    # last_step = run.history._step
 
     if cfg.model.adversarial is True:
         print(
@@ -484,11 +499,11 @@ def main():
     engine = make_engine(cfg, datamanager, models, optimizers, schedulers)
     engine.run(**engine_run_kwargs(cfg))
 
-    if not cfg.model.adversarial:
-        engine.run(
-            test_only=True,
-            **engine_run_kwargs(cfg)
-        )
+    # if not cfg.model.adversarial:
+    #     engine.run(
+    #         test_only=True,
+    #         **engine_run_kwargs(cfg)
+    #     )
 
 
 if __name__ == '__main__':

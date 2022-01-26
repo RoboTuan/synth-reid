@@ -183,6 +183,7 @@ class ImageDataManager(DataManager):
         verbose=True,
         # add option for validation set
         val=False,
+        adversarial=False,
         relabel=True,
         seed=10,
         n_samples=50  # taking only #n_samples images for GTA_synthReid
@@ -201,7 +202,15 @@ class ImageDataManager(DataManager):
         )
 
         self.verbose = verbose
-        self.val = val
+        self.adversarial = adversarial
+        if self.adversarial is True:
+            self.val = False
+            self.adv_val = val
+            self.val_sources = self.targets
+        else:
+            self.val = val
+            self.adv_val = False
+            self.val_sources = self.sources
         self.relabel = relabel
         self.n_samples = n_samples
         self.batch_size_train = batch_size_train
@@ -278,7 +287,7 @@ class ImageDataManager(DataManager):
                     cuhk03_labeled=cuhk03_labeled,
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
-                    val=self.val,
+                    val=self.adv_val,
                     relabel=self.relabel,
                     n_samples=self.n_samples
                 )
@@ -302,30 +311,30 @@ class ImageDataManager(DataManager):
                 drop_last=True
             )
 
-        if self.val is True:
-            print('=> Loading validataion (source) dataset')
+        if self.val is True or self.adv_val is True:
+            print('=> Loading validataion dataset')
             self.val_loader = {
                 name: {
                     'query': None,
                     'gallery': None
                 }
-                for name in self.sources
+                for name in self.val_sources
             }
             self.val_dataset = {
                 name: {
                     'query': None,
                     'gallery': None
                 }
-                for name in self.sources
+                for name in self.val_sources
             }
-            for name in self.sources:
+            for name in self.val_sources:
                 # build query loader
                 val_queryset = init_image_dataset(
                     name,
                     self.seed,
                     transform=self.transform_te,
                     mode='val_query',
-                    combineall=combineall,
+                    combineall=False,
                     root=root,
                     verbose=self.verbose,
                     split_id=split_id,
@@ -352,7 +361,7 @@ class ImageDataManager(DataManager):
                     self.seed,
                     transform=self.transform_te,
                     mode='val_gallery',
-                    combineall=combineall,
+                    combineall=False,
                     verbose=self.verbose,
                     root=root,
                     split_id=split_id,

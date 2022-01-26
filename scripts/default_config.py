@@ -90,6 +90,7 @@ def get_default_config():
     cfg.train.new_layers = ['classifier']  # newly added layers with default lr
     cfg.train.base_lr_mult = 0.1  # learning rate multiplier for base layers
     cfg.train.lr_scheduler = 'single_step'
+    cfg.train.warmup_iters = 10
     cfg.train.generator_lr_scheduler = 'single_step'
     cfg.train.discriminator_lr_scheduler = 'single_step'
     cfg.train.stepsize = [20]  # stepsize to decay learning rate
@@ -182,6 +183,7 @@ def imagedata_kwargs(cfg):
         'market1501_500k': cfg.market1501.use_500k_distractors,
         'verbose': cfg.data.verbose,
         'val': cfg.data.val,
+        'adversarial': cfg.model.adversarial,
         'relabel': cfg.data.relabel,
         'n_samples': cfg.data.n_samples
     }
@@ -264,7 +266,9 @@ def lr_scheduler_kwargs(cfg):
         'lr_scheduler': cfg.train.lr_scheduler,
         'stepsize': cfg.train.stepsize,
         'gamma': cfg.train.gamma,
-        'max_epoch': cfg.train.max_epoch
+        'max_epoch': cfg.train.max_epoch,
+        'warmup_iters': cfg.train.warmup_iters
+
     }
 
 
@@ -295,7 +299,7 @@ def engine_run_kwargs(cfg):
         'open_layers': cfg.train.open_layers,
         'start_eval': cfg.test.start_eval,
         'eval_freq': cfg.test.eval_freq,
-        # 'test_only': cfg.test.evaluate,
+        'test_only': cfg.test.evaluate,
         'print_freq': cfg.train.print_freq,
         'dist_metric': cfg.test.dist_metric,
         'normalize_feature': cfg.test.normalize_feature,

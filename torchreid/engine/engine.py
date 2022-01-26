@@ -485,15 +485,19 @@ class Engine(object):
         if self.val and not test_only:
             # There is 1 validation dataloader
             targets = list(self.val_loader.keys())
+            self.phase = 'Val'
         elif test_only and self.val:
             targets = list(self.test_loader.keys())
+            self.phase = 'Test'
         else:
             targets = list(self.test_loader.keys())
+            self.phase = 'Test'
+        print(self.phase)
 
         for name in targets:
             domain = 'source' if name in self.datamanager.sources else 'target'
             print('##### Evaluating {} ({}) #####'.format(name, domain))
-            if self.val and not test_only:
+            if self.phase == 'Val':
                 print("Evaluating on validation data")
                 query_loader = self.val_loader[name]['query']
                 # print(len(query_loader))
@@ -523,10 +527,10 @@ class Engine(object):
             if self.writer is not None:
                 n_iter = self.epoch * self.num_batches + self.batch_idx
                 for r in ranks:
-                    wandb.log({f'Test/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
-                self.writer.add_scalar(f'Test/{name}/rank1', rank1, self.epoch)
-                self.writer.add_scalar(f'Test/{name}/mAP', mAP, self.epoch)
-                wandb.log({f'Test/{name}/mAP': mAP}, step=n_iter + 1)
+                    wandb.log({f'{self.phase}/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
+                self.writer.add_scalar(f'{self.phase}/{name}/rank1', rank1, self.epoch)
+                self.writer.add_scalar(f'{self.phase}/{name}/mAP', mAP, self.epoch)
+                wandb.log({f'{self.phase}/{name}/mAP': mAP}, step=n_iter + 1)
 
         return rank1
 
