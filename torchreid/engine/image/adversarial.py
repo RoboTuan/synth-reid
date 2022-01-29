@@ -140,6 +140,7 @@ class ImageAdversarialEngine(Engine):
             loss['nce_loss'] = nce_loss.item()
             g_loss += nce_loss
             if self.optimizers[self.model_names['feature_net']] is None:
+                print("Initializing the feature net on the fly")
                 self.optimizers[self.model_names['feature_net']], self.schedulers[self.model_names['feature_net']] =\
                     self.models[self.model_names['feature_net']].module.optim_sched()
                 self.register_model(self.model_names['feature_net'],

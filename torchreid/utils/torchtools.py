@@ -335,6 +335,9 @@ def plot_grad_flow(named_parameters, model_name, n_iter):
     layers = []
     for n, p in named_parameters:
         if(p.requires_grad) and ("bias" not in n):
+            if p.grad is None:
+                print(f"Not printing {model_name} parameters since their gradient is None at {n_iter + 1} iterations")
+                return
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
             max_grads.append(p.grad.abs().max())

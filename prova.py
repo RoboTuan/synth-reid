@@ -205,7 +205,8 @@ engine = torchreid.engine.ImageAdversarialEngine(
     schedulers=schedulers,
     val=False,
     weight_idt=0.,
-    weight_t=1.
+    weight_t=1.,
+    epoch_id=2
 )
 
 # open_layers = {
@@ -218,7 +219,7 @@ engine = torchreid.engine.ImageAdversarialEngine(
 engine.run(
     # start_epoch=start_epoch,
     save_dir='log/prova1',
-    max_epoch=2,
+    max_epoch=4,
     eval_freq=1,
     print_freq=500,
     # fixbase_epoch=10,
