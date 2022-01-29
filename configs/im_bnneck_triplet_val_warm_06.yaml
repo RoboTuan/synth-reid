@@ -1,0 +1,45 @@
+model:
+  name: 'bnneck'
+  pretrained: True
+  last_stride: 1
+  # load_weights: 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30'
+
+
+data:
+  val: True
+  verbose: True
+  type: 'image'
+  sources: ['gta_synthreid']
+  targets: ['gta_synthreid']
+  height: 256
+  width: 128
+  combineall: False
+  transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
+  save_dir: 'log/im_bnneck_triplet_val_warm_06'
+
+loss:
+  name: 'triplet'
+  softmax:
+    label_smooth: True
+
+sampler:
+  train_sampler: RandomIdentitySampler
+
+train:
+  optim: 'adam'
+  lr: 2.5e-4
+  weight_decay: 5e-4
+  max_epoch: 60
+  batch_size: 32
+  print_freq: 400
+  lr_scheduler: 'warmup_multi_step'
+  stepsize: [20, 30, 40]
+
+test:
+  eval_flip: True
+  batch_size: 100
+  dist_metric: 'euclidean'
+  normalize_feature: False
+  # evaluate: False
+  eval_freq: 10
+  rerank: False

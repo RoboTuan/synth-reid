@@ -1,0 +1,81 @@
+model:
+  name: 'id_net'
+  pretrained: False
+  last_stride: 2
+  adversarial: True
+  # resume: 'log/CUT11/generator/model.pth.tar-30'
+  # load_weights: 'log/CUT11/generator/model.pth.tar-30'
+
+
+data:
+  val: True
+  verbose: True
+  type: 'image'
+  sources: ['gta_synthreid']
+  targets: ['market1501']
+  norm_mean: [0.5, 0.5, 0.5]
+  norm_std: [0.5, 0.5, 0.5]
+  load_train_targets: True
+  height: 256
+  width: 128
+  combineall: True
+  transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
+  save_dir: 'log/adv_nce_triplet_joint_val_05'
+  n_samples: 20
+
+loss:
+    adversarial:
+      weight_nce: 0.5
+      weight_idt: 0.
+      weight_gen: 1.
+      weight_dis: 0.5
+      weight_sim: 0.
+      weight_x: 1.
+      weight_t: 1.
+      sim_type_loss: 'feat_match'
+      guide_gen: True
+      nce_layers: [0, 2, 3, 4, 8]
+      dis_layers: [1, 2, 3, 4]
+      num_patches: 256
+
+sampler:
+  train_sampler: 'RandomIdentitySampler'
+  num_instances: 4
+
+adam:
+  beta1: 0.5
+
+train:
+  optim: 'adam'
+  generator_optim: 'adam'
+  discriminator_optim: 'adam'
+  lr: 1e-5
+  generator_lr: 2e-4
+  discriminator_lr: 2e-4
+  feature_net_lr: 2e-4
+  weight_decay: 5e-2
+  generator_weight_decay: 5e-4
+  discriminator_weight_decay: 5e-4
+  feature_net_weight_decay: 5e-3
+  max_epoch: 60
+  epoch_id: 10
+  batch_size: 8
+  print_freq: 500
+  lr_scheduler: 'multi_step'
+  generator_lr_scheduler: 'multi_step'
+  discriminator_lr_scheduler: 'multi_step'
+  stepsize: [15, 25, 40]
+  generator_stepsize: [15, 25, 40]
+  discriminator_stepsize: [15, 25, 40]
+  feature_net_stepsize: [15, 25, 40]
+  feature_net_nc: 256
+  seed: 10
+
+test:
+  eval_flip: False
+  batch_size: 100
+  dist_metric: 'euclidean'
+  normalize_feature: False
+  # evaluate: False
+  eval_freq: 10
+  rerank: False
