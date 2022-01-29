@@ -15,7 +15,7 @@ data:
   width: 128
   combineall: False
   transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
-  save_dir: 'log/im_bnneck_triplet_val_warm_03'
+  save_dir: 'log/im_bnneck_triplet_val_warm_04'
 
 loss:
   name: 'triplet'
