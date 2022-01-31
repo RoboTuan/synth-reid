@@ -552,6 +552,9 @@ class Engine(object):
     ):
         batch_time = AverageMeter()
 
+        if flip is True:
+            print("Adding flipped imgs...")
+
         def fliplr(img):
             '''flip horizontal'''
             inv_idx = torch.arange(
