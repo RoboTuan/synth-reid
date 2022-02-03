@@ -8,19 +8,19 @@ model:
 
 
 data:
-  val: False
+  val: True
   verbose: True
   type: 'image'
-  sources: ['dukemtmcreid']
+  sources: ['gta_synthreid']
   targets: ['market1501']
   norm_mean: [0.5, 0.5, 0.5]
   norm_std: [0.5, 0.5, 0.5]
   load_train_targets: True
   height: 256
   width: 128
-  combineall: False
+  combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/duke_adv_nce_triplet_joint_val_10'
+  save_dir: 'log/adv_nce_triplet_joint_val_11'
   n_samples: 20
 
 loss:
@@ -29,7 +29,7 @@ loss:
       weight_idt: 0.
       weight_gen: 1.
       weight_dis: 0.5
-      weight_sim: 0.
+      weight_sim: 1.
       weight_x: 1.
       weight_t: 0.
       sim_type_loss: 'feat_match'

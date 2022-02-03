@@ -10,12 +10,12 @@ data:
   verbose: True
   type: 'image'
   sources: ['gta_synthreid']
-  targets: ['gta_synthreid']
+  targets: ['market1501']
   height: 256
   width: 128
   combineall: False
   transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
-  save_dir: 'log/im_bnneck_triplet_test_warm_06'
+  save_dir: 'log/im_bnneck_triplet_transfer_warm_06'
 
 loss:
   name: 'triplet'
@@ -26,6 +26,7 @@ sampler:
   train_sampler: RandomIdentitySampler
 
 train:
+  generator_path: 'log/adv_nce_triplet_joint_test_11/generator/model.pth.tar-60'
   optim: 'adam'
   lr: 2.5e-4
   weight_decay: 5e-4
@@ -40,7 +41,6 @@ test:
   batch_size: 100
   dist_metric: 'euclidean'
   normalize_feature: False
-  visrank: False
   # evaluate: False
   eval_freq: 10
   rerank: False
