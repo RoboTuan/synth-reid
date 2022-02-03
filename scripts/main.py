@@ -213,6 +213,7 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
                     use_gpu=cfg.use_gpu,
                     label_smooth=cfg.loss.softmax.label_smooth,
                     val=cfg.data.val,
+                    generator_path=cfg.train.generator_path
                 )
 
         else:

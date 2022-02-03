@@ -94,6 +94,7 @@ class ImageTripletEngine(Engine):
         self.register_model('model', model, optimizer, scheduler)
 
         if generator_path is not None:
+            print("Trasfer dataset learning")
             self.generator_S2R = Generator()
             load_pretrained_weights(self.generator_S2R, self.generator_path)
             # print(self.generator_S2R)
