@@ -22,7 +22,8 @@ def get_default_config():
     cfg.data.root = '/mnt/data2/defonte_data/PersonReid_datasets/'
     cfg.data.sources = ['gta_synthreid']
     cfg.data.targets = ['gta_synthreid']
-    cfg.data.workers = 4  # number of data loading workers
+    # changed form 4 to 8
+    cfg.data.workers = 8  # number of data loading workers
     cfg.data.split_id = 0  # split index
     cfg.data.height = 256  # image height
     cfg.data.width = 128  # image width
@@ -65,6 +66,7 @@ def get_default_config():
 
     # train
     cfg.train = CN()
+    cfg.train.generator_path = ''  # generator path for style transfer
     cfg.train.optim = 'adam'
     cfg.train.generator_optim = 'adam'
     cfg.train.discriminator_optim = 'adam'
@@ -185,7 +187,8 @@ def imagedata_kwargs(cfg):
         'val': cfg.data.val,
         'adversarial': cfg.model.adversarial,
         'relabel': cfg.data.relabel,
-        'n_samples': cfg.data.n_samples
+        'n_samples': cfg.data.n_samples,
+        'seed': cfg.train.seed
     }
 
 

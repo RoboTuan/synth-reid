@@ -2,7 +2,8 @@ from __future__ import division, print_function, absolute_import
 import re
 import glob
 import os.path as osp
-
+import numpy as np
+from collections import defaultdict
 from ..dataset import ImageDataset
 
 
@@ -24,11 +25,14 @@ class DukeMTMCreID(ImageDataset):
     dataset_dir = 'dukemtmc-reid'
     dataset_url = 'http://vision.cs.duke.edu/DukeMTMC/data/misc/DukeMTMC-reID.zip'
 
-    def __init__(self, root='/mnt/data2/defonte_data/PersonReid_datasets/', **kwargs):
+    def __init__(self, root='', val=False, relabel=False, **kwargs):
         self.root = osp.abspath(osp.expanduser(root))
         self.dataset_dir = osp.join(self.root, self.dataset_dir)
+        self.val = val
+        self.relabel = relabel
         # self.download_dataset(self.dataset_dir, self.dataset_url)
-        self.train_dir = osp.join(
+
+        self.train_val_dir = osp.join(
             self.dataset_dir, 'bounding_box_train'
         )
         self.query_dir = osp.join(self.dataset_dir, 'query')
@@ -37,15 +41,30 @@ class DukeMTMCreID(ImageDataset):
         )
 
         required_files = [
-            self.dataset_dir, self.train_dir, self.query_dir, self.gallery_dir
+            self.dataset_dir, self.train_val_dir, self.query_dir, self.gallery_dir
         ]
         self.check_before_run(required_files)
 
-        train = self.process_dir(self.train_dir, relabel=True)
-        query = self.process_dir(self.query_dir, relabel=False)
-        gallery = self.process_dir(self.gallery_dir, relabel=False)
+        if self.val:
+            train_val, train_val_pids = self.process_dir(self.train_val_dir, relabel=False)
+        else:
+            train_val, train_val_pids = self.process_dir(self.train_val_dir, relabel=self.relabel)
+        query, _ = self.process_dir(self.query_dir, relabel=False)
+        gallery, _ = self.process_dir(self.gallery_dir, relabel=False)
 
-        super(DukeMTMCreID, self).__init__(train, query, gallery, **kwargs)
+        self.train_val_pids = np.array(list(train_val_pids))
+        self.train_val = train_val
+        self.query = query
+        self.gallery = gallery
+        if self.val:
+            train, val_gallery = self._train_val_split()
+            self.train = train
+            self.val_gallery = val_gallery
+            val_query = self._prepare_val()
+            self.val_query = val_query
+            super(DukeMTMCreID, self).__init__(train, query, gallery, self.val, val_query, val_gallery, **kwargs)
+        else:
+            super(DukeMTMCreID, self).__init__(train_val, query, gallery, **kwargs)
 
     def process_dir(self, dir_path, relabel=False):
         img_paths = glob.glob(osp.join(dir_path, '*.jpg'))
@@ -66,4 +85,48 @@ class DukeMTMCreID(ImageDataset):
                 pid = pid2label[pid]
             data.append((img_path, pid, camid))
 
-        return data
+        return data, pid_container
+
+    def _train_val_split(self):
+        train_dataset = []
+        val_dataset = []
+        n_val_pids = 200  # hard coded
+        # taking n_val_pids pids for validation
+        val_pids = set(self.train_val_pids[np.random.choice(self.train_val_pids.shape[0],
+                       n_val_pids, replace=False)])
+        train_pids = dict()
+        count = 0
+        assert len(val_pids) == n_val_pids
+        for image in self.train_val:
+            if image[1] in val_pids:
+                val_dataset.append(image)
+            else:
+                if image[1] not in train_pids:
+                    train_pids[image[1]] = count
+                    count += 1
+                if self.relabel:
+                    new_image = (image[0], train_pids[image[1]], image[2])
+                else:
+                    new_image = image
+                train_dataset.append(new_image)
+
+        return train_dataset, val_dataset
+
+    def _prepare_val(self):
+        # va_gallery is the same as val
+        val_query = []
+        pid_cams = defaultdict(list)
+        pattern = re.compile(r'([-\d]+)_c(\d)')
+
+        for image in self.val_gallery:
+            img_path = image[0]
+            pid = image[1]
+            _, cam_id = pattern.search(img_path).groups()
+            if pid not in pid_cams:
+                pid_cams[pid].append(cam_id)
+                val_query.append(image)
+            elif cam_id not in pid_cams[pid]:
+                pid_cams[pid].append(cam_id)
+                val_query.append(image)
+        # print(pid_cams)
+        return val_query
