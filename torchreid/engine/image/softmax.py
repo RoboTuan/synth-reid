@@ -71,8 +71,6 @@ class ImageSoftmaxEngine(Engine):
 
         super(ImageSoftmaxEngine, self).__init__(datamanager=datamanager,
                                                  val=self.val,
-                                                 lambda_id=self.lambda_id,
-                                                 lambda_ss=self.lambda_ss,
                                                  use_gpu=use_gpu)
 
         self.model_name = model_name
@@ -94,7 +92,7 @@ class ImageSoftmaxEngine(Engine):
             imgs = imgs.cuda()
             pids = pids.cuda()
 
-        outputs, _ = self.model(imgs)
+        outputs = self.model(imgs)
 
         # print(len(outputs))
         # print(outputs)
