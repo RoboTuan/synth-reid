@@ -13,7 +13,7 @@ class CUHK03(ImageDataset):
         Li et al. DeepReID: Deep Filter Pairing Neural Network for Person Re-identification. CVPR 2014.
 
     URL: `<http://www.ee.cuhk.edu.hk/~xgwang/CUHK_identification.html#!>`_
-    
+
     Dataset statistics:
         - identities: 1360.
         - images: 13164.
@@ -21,6 +21,7 @@ class CUHK03(ImageDataset):
         - splits: 20 (classic).
     """
     dataset_dir = 'cuhk03'
+    # dataset_dir = ''
     dataset_url = None
 
     def __init__(
@@ -33,7 +34,7 @@ class CUHK03(ImageDataset):
     ):
         self.root = osp.abspath(osp.expanduser(root))
         self.dataset_dir = osp.join(self.root, self.dataset_dir)
-        self.download_dataset(self.dataset_dir, self.dataset_url)
+        # self.download_dataset(self.dataset_dir, self.dataset_url)
 
         self.data_dir = osp.join(self.dataset_dir, 'cuhk03_release')
         self.raw_mat_path = osp.join(self.data_dir, 'cuhk-03.mat')
@@ -120,11 +121,11 @@ class CUHK03(ImageDataset):
             return mat[ref][:].T
 
         def _process_images(img_refs, campid, pid, save_dir):
-            img_paths = [] # Note: some persons only have images for one view
+            img_paths = []  # Note: some persons only have images for one view
             for imgid, img_ref in enumerate(img_refs):
                 img = _deref(img_ref)
                 if img.size == 0 or img.ndim < 3:
-                    continue # skip empty cell
+                    continue  # skip empty cell
                 # images are saved with the following format, index-1 (ensure uniqueness)
                 # campid: index of camera pair (1-5)
                 # pid: index of person in 'campid'-th camera pair
@@ -174,7 +175,7 @@ class CUHK03(ImageDataset):
                     for img_path in img_paths:
                         camid = int(
                             osp.basename(img_path).split('_')[2]
-                        ) - 1 # make it 0-based
+                        ) - 1  # make it 0-based
                         test.append((img_path, num_test_pids, camid))
                     num_test_pids += 1
                     num_test_imgs += len(img_paths)
@@ -182,7 +183,7 @@ class CUHK03(ImageDataset):
                     for img_path in img_paths:
                         camid = int(
                             osp.basename(img_path).split('_')[2]
-                        ) - 1 # make it 0-based
+                        ) - 1  # make it 0-based
                         train.append((img_path, num_train_pids, camid))
                     num_train_pids += 1
                     num_train_imgs += len(img_paths)
@@ -235,7 +236,7 @@ class CUHK03(ImageDataset):
             unique_pids = set()
             for idx in idxs:
                 img_name = filelist[idx][0]
-                camid = int(img_name.split('_')[2]) - 1 # make it 0-based
+                camid = int(img_name.split('_')[2]) - 1  # make it 0-based
                 pid = pids[idx]
                 if relabel:
                     pid = pid2label[pid]
@@ -245,7 +246,7 @@ class CUHK03(ImageDataset):
             return tmp_set, len(unique_pids), len(idxs)
 
         def _extract_new_split(split_dict, img_dir):
-            train_idxs = split_dict['train_idx'].flatten() - 1 # index-0
+            train_idxs = split_dict['train_idx'].flatten() - 1  # index-0
             pids = split_dict['labels'].flatten()
             train_pids = set(pids[train_idxs])
             pid2label = {pid: label for label, pid in enumerate(train_pids)}

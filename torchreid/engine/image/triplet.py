@@ -93,7 +93,7 @@ class ImageTripletEngine(Engine):
         self.generator_path = generator_path
         self.register_model('model', model, optimizer, scheduler)
 
-        if generator_path is not None:
+        if generator_path != '':
             print("Trasfer dataset learning")
             self.generator_S2R = Generator()
             load_pretrained_weights(self.generator_S2R, self.generator_path)
@@ -126,7 +126,7 @@ class ImageTripletEngine(Engine):
 
         # torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/synth.jpg', nrow=8)
 
-        if self.generator_path is not None:
+        if self.generator_path != '':
             with torch.no_grad():
                 imgs = self.generator_S2R(imgs)
         #         torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/real.jpg', nrow=8)
