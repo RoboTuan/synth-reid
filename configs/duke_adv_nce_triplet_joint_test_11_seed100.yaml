@@ -12,7 +12,7 @@ data:
   verbose: True
   type: 'image'
   sources: ['gta_synthreid']
-  targets: ['market1501']
+  targets: ['dukemtmcreid']
   norm_mean: [0.5, 0.5, 0.5]
   norm_std: [0.5, 0.5, 0.5]
   load_train_targets: True
@@ -20,7 +20,7 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/adv_nce_triplet_joint_test_11'
+  save_dir: 'log/duke_adv_nce_triplet_joint_test_11_seed100'
   n_samples: 20
 
 loss:
@@ -67,10 +67,10 @@ train:
   discriminator_stepsize: [40]
   feature_net_stepsize: [40]
   feature_net_nc: 256
-  seed: 10
+  seed: 100
 
 test:
-  eval_flip: True
+  eval_flip: False
   batch_size: 100
   dist_metric: 'euclidean'
   normalize_feature: False

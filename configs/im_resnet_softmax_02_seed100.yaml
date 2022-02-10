@@ -15,7 +15,7 @@ data:
   width: 128
   combineall: False
   transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
-  save_dir: 'log/im_resnet_softmax_02'
+  save_dir: 'log/im_resnet_softmax_02_seed100'
 
 loss:
   name: 'softmax'
@@ -31,6 +31,7 @@ train:
   print_freq: 400
   lr_scheduler: 'multi_step'
   stepsize: [20, 30, 40]
+  seed: 100
 
 test:
   eval_flip: True

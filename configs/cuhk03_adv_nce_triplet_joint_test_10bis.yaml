@@ -12,7 +12,7 @@ data:
   verbose: True
   type: 'image'
   sources: ['gta_synthreid']
-  targets: ['market1501']
+  targets: ['cuhk03']
   norm_mean: [0.5, 0.5, 0.5]
   norm_std: [0.5, 0.5, 0.5]
   load_train_targets: True
@@ -20,7 +20,7 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/adv_nce_triplet_joint_test_11'
+  save_dir: 'log/cuhk03_adv_nce_triplet_joint_test_10bis'
   n_samples: 20
 
 loss:
@@ -29,7 +29,7 @@ loss:
       weight_idt: 0.
       weight_gen: 1.
       weight_dis: 0.5
-      weight_sim: 1.
+      weight_sim: 0.
       weight_x: 1.
       weight_t: 0.
       sim_type_loss: 'feat_match'
@@ -52,9 +52,9 @@ train:
   generator_lr: 2e-4
   discriminator_lr: 2e-4
   feature_net_lr: 2e-4
-  weight_decay: 5e-2
-  generator_weight_decay: 5e-4
-  discriminator_weight_decay: 5e-4
+  weight_decay: 5e-1
+  generator_weight_decay: 5e-3
+  discriminator_weight_decay: 5e-3
   feature_net_weight_decay: 5e-3
   max_epoch: 60
   batch_size: 8
@@ -70,7 +70,7 @@ train:
   seed: 10
 
 test:
-  eval_flip: True
+  eval_flip: False
   batch_size: 100
   dist_metric: 'euclidean'
   normalize_feature: False
