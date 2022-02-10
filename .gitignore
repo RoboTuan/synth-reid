@@ -7,7 +7,7 @@
 # Pictures
 sample_images_while_training/*
 sample_images_while_training1/*
-generated_imgs/*
+generated_imgs*/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

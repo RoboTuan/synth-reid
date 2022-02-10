@@ -7,8 +7,8 @@ from torchreid.utils import set_random_seed, load_pretrained_weights, resume_fro
 import sys
 
 seed = 10
-generator_path = './log/adv_nce_triplet_joint_val_12/generator/model.pth.tar-60'
-dest_folder = './generated_imgs/'
+generator_path = './log/cuhk03_adv_nce_triplet_joint_test_12/generator/model.pth.tar-60'
+dest_folder = './generated_imgs_cuhk03_idt/'
 set_random_seed(10)
 
 datamanager = torchreid.data.ImageDataManager(
@@ -34,7 +34,7 @@ datamanager = torchreid.data.ImageDataManager(
 generator_S2R = Generator()
 load_pretrained_weights(generator_S2R, generator_path)
 generator_S2R.cuda()
-generator_S2R.eval()
+# generator_S2R.eval()
 for p in generator_S2R.parameters():
     p.requires_grad = False
 
