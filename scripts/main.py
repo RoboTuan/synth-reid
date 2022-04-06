@@ -420,7 +420,11 @@ def main():
         if name == 'mlp':
             print('The feature_net is created on the fly when it sees it first bath of data')
         elif name == 'id_net':
-            print("TODO")
+            num_params, flops = compute_model_complexity(
+                models[name], (1, 256, 64, 32)
+            )
+            print('{} complexity: params={:,} flops={:,}'.format(name, num_params, flops))
+
         else:
             num_params, flops = compute_model_complexity(
                 models[name], (1, 3, cfg.data.height, cfg.data.width)
@@ -436,7 +440,7 @@ def main():
             load_pretrained_weights(models[name], path)
         if cfg.use_gpu:
             models[name] = nn.DataParallel(models[name]).cuda()
-
+    # sys.exit()
     optimizers = make_optimizer(cfg, models)
     schedulers = make_scheduler(cfg, optimizers)
 
