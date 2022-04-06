@@ -6,7 +6,7 @@ import functools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchreid.models.backbones.resnet import BasicBlock, conv1x1
+from torchreid.models.backbones.resnet import BasicBlock, conv1x1, Bottleneck
 import sys
 
 
@@ -212,24 +212,93 @@ class Conv_Relu_Pool(nn.Module):
 class Id_Net(nn.Module):
     def __init__(self, in_channels, n_identities):
         super(Id_Net, self).__init__()
-
-        self.layers = nn.Sequential(
-            BasicBlock(in_channels, in_channels * 2, 2, conv1x1(in_channels, in_channels * 2, 2)),
-            BasicBlock(in_channels * 2, in_channels * 4, 2, conv1x1(in_channels * 2, in_channels * 4, 2)),
-            BasicBlock(in_channels * 4, in_channels * 8, 2, conv1x1(in_channels * 4, in_channels * 8, 2)),
+        layers = [3, 4, 6, 3]
+        # layers = [1, 1, 1, 1]
+        self._norm_layer = nn.BatchNorm2d
+        self.groups = 1
+        self.base_width = 64
+        self.dilation = 1
+        self.inplanes = 256
+        replace_stride_with_dilation = [False, False, False]
+        self.layer2 = self._make_layer(
+            Bottleneck,
+            128,
+            layers[1],
+            stride=2,
+            dilate=replace_stride_with_dilation[0]
         )
+        self.layer3 = self._make_layer(
+            Bottleneck,
+            256,
+            layers[2],
+            stride=2,
+            dilate=replace_stride_with_dilation[1]
+        )
+        self.layer4 = self._make_layer(
+            Bottleneck,
+            512,
+            layers[3],
+            stride=2,
+            dilate=replace_stride_with_dilation[2]
+        )
+
+        # self.layers = nn.Sequential(
+        #     BasicBlock(in_channels, in_channels * 2, 2, conv1x1(in_channels, in_channels * 2, 2)),
+        #     BasicBlock(in_channels * 2, in_channels * 4, 2, conv1x1(in_channels * 2, in_channels * 4, 2)),
+        #     BasicBlock(in_channels * 4, in_channels * 8, 2, conv1x1(in_channels * 4, in_channels * 8, 2)),
+        # )
         self.global_avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.bottleneck = nn.BatchNorm1d(in_channels * 8)
         self.bottleneck.bias.requires_grad_(False)  # no shift
         self.flatten = nn.Flatten(1)
         self.classifier = nn.Linear(2048, n_identities)
 
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+        layers = []
+        layers.append(
+            block(
+                self.inplanes, planes, stride, downsample, self.groups,
+                self.base_width, previous_dilation, norm_layer
+            )
+        )
+        self.inplanes = planes * block.expansion
+        for _ in range(1, blocks):
+            layers.append(
+                block(
+                    self.inplanes,
+                    planes,
+                    groups=self.groups,
+                    base_width=self.base_width,
+                    dilation=self.dilation,
+                    norm_layer=norm_layer
+                )
+            )
+
+        return nn.Sequential(*layers)
+
     def forward(self, x):
-        feats = self.layers(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        feats = self.layer4(x)
+
+        # feats = self.layers(x)
         global_feats = self.global_avgpool(feats)
         global_feats = self.flatten(global_feats)
         global_feats_norm = self.bottleneck(global_feats)
         if not self.training:
             return global_feats_norm
+            # return global_feats
         out = self.classifier(global_feats_norm)
+        # out = self.classifier(global_feats)
         return out, global_feats

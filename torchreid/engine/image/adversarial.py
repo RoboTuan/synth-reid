@@ -38,7 +38,7 @@ class ImageAdversarialEngine(Engine):
         weight_idt=0.5,
         weight_gen=1.,
         weight_dis=0.5,
-        weight_sim=0,
+        weight_sim=0.,
         weight_x=1.,
         weight_t=0.,
         epoch_id=1,
@@ -136,7 +136,7 @@ class ImageAdversarialEngine(Engine):
 
         # nce loss
         if self.weight_nce > 0:
-            nce_loss = self.calculate_NCE_loss(s_real, r_fake) * self.weight_gen
+            nce_loss = self.calculate_NCE_loss(s_real, r_fake) * self.weight_nce
             loss['nce_loss'] = nce_loss.item()
             g_loss += nce_loss
             if self.optimizers[self.model_names['feature_net']] is None:
