@@ -20,7 +20,7 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/duke_adv_nce_resnet_joint_test_11_bottle'
+  save_dir: 'log/cuhk03_adv_nce_resnet_joint_test_11_bottle_seed100'
   n_samples: 20
 
 loss:
@@ -67,7 +67,7 @@ train:
   discriminator_stepsize: [40]
   feature_net_stepsize: [40]
   feature_net_nc: 256
-  seed: 10
+  seed: 100
 
 test:
   eval_flip: True

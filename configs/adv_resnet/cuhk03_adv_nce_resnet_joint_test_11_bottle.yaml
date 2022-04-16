@@ -70,7 +70,7 @@ train:
   seed: 10
 
 test:
-  eval_flip: False
+  eval_flip: True
   batch_size: 100
   dist_metric: 'euclidean'
   normalize_feature: False

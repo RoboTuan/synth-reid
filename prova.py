@@ -35,8 +35,8 @@ datamanager = torchreid.data.ImageDataManager(
     load_train_targets=True,
     norm_mean=[0.5] * 3,
     norm_std=[0.5] * 3,
-    train_sampler='RandomIdentitySampler',
-    num_instances=4,
+    # train_sampler='RandomIdentitySampler',
+    # num_instances=4,
     n_samples=20  # taking only at max 20 images per identity for GTA_synthReid
 )
 # sys.exit()
@@ -71,7 +71,20 @@ convnet = torchreid.models.build_model(
     name=convnet_name,
     adversarial=True,
 )
-
+print(convnet)
+from torchreid.utils import compute_model_complexity
+num_params, flops = compute_model_complexity(
+    convnet, (1, 256, 64, 32)
+)
+print('{} complexity: params={:,} flops={:,}'.format('id_net', num_params, flops))
+# from torchvision.models import resnet50
+# net = resnet50()
+# from torchreid.utils import compute_model_complexity
+# num_params, flops = compute_model_complexity(
+#     net, (1, 3, 256, 128)
+# )
+# print('{} complexity: params={:,} flops={:,}'.format('id_net', num_params, flops))
+sys.exit()
 # generator_S2R.cuda()
 # generator_R2S.cuda()
 # discriminator_S.cuda()
@@ -204,9 +217,11 @@ engine = torchreid.engine.ImageAdversarialEngine(
     optimizers=optimizers,
     schedulers=schedulers,
     val=False,
+    guide_gen=True,
     weight_idt=0.,
-    weight_t=1.,
-    epoch_id=2
+    weight_x=1.
+    # weight_t=1.,
+    # epoch_id=1
 )
 
 # open_layers = {
@@ -219,9 +234,9 @@ engine = torchreid.engine.ImageAdversarialEngine(
 engine.run(
     # start_epoch=start_epoch,
     save_dir='log/prova1',
-    max_epoch=4,
+    max_epoch=1,
     eval_freq=1,
-    print_freq=500,
+    print_freq=10,
     # fixbase_epoch=10,
     # open_layers=open_layers
 )
