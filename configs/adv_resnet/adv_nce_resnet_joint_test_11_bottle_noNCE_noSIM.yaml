@@ -20,16 +20,16 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/adv_nce_resnet_joint_test_13_bottle'
+  save_dir: 'log/adv_nce_resnet_joint_test_11_bottle_noNCE_noSIM'
   n_samples: 20
 
 loss:
     adversarial:
-      weight_nce: 0.5
-      weight_idt: 0.5
+      weight_nce: 0.
+      weight_idt: 0.
       weight_gen: 1.
       weight_dis: 0.5
-      weight_sim: 0.5
+      weight_sim: 0.
       weight_x: 0.5
       weight_t: 0.
       sim_type_loss: 'feat_match'
@@ -70,7 +70,7 @@ train:
   seed: 10
 
 test:
-  eval_flip: True
+  eval_flip: False
   batch_size: 100
   dist_metric: 'euclidean'
   normalize_feature: False

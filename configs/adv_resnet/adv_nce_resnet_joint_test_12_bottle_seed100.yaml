@@ -20,7 +20,7 @@ data:
   width: 128
   combineall: True
   transforms: ['random_flip', 'random_crop_translate']  # Normalization is always included
-  save_dir: 'log/adv_nce_resnet_joint_test_13_bottle'
+  save_dir: 'log/adv_nce_resnet_joint_test_12_bottle_seed100'
   n_samples: 20
 
 loss:
@@ -29,7 +29,7 @@ loss:
       weight_idt: 0.5
       weight_gen: 1.
       weight_dis: 0.5
-      weight_sim: 0.5
+      weight_sim: 0.
       weight_x: 0.5
       weight_t: 0.
       sim_type_loss: 'feat_match'
@@ -67,7 +67,7 @@ train:
   discriminator_stepsize: [40]
   feature_net_stepsize: [40]
   feature_net_nc: 256
-  seed: 10
+  seed: 100
 
 test:
   eval_flip: True
