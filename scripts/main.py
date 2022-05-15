@@ -47,18 +47,19 @@ def make_model(cfg, datamanager):
         )
         models[cfg.model.discriminator_name] = discriminator_R
 
-        feature_net = torchreid.models.build_model(
-            adversarial=True,
-            name=cfg.model.feature_net_name,
-            use_mlp=True,
-            lr=cfg.train.feature_net_lr,
-            weight_decay=cfg.train.feature_net_weight_decay,
-            step_size=cfg.train.feature_net_stepsize,
-            optim=cfg.train.feature_net_optim,
-            nc=cfg.train.feature_net_nc,
-            adam_beta1=cfg.adam.beta1
-        )
-        models[cfg.model.feature_net_name] = feature_net
+        if cfg.loss.adversarial.weight_nce > 0:
+            feature_net = torchreid.models.build_model(
+                adversarial=True,
+                name=cfg.model.feature_net_name,
+                use_mlp=True,
+                lr=cfg.train.feature_net_lr,
+                weight_decay=cfg.train.feature_net_weight_decay,
+                step_size=cfg.train.feature_net_stepsize,
+                optim=cfg.train.feature_net_optim,
+                nc=cfg.train.feature_net_nc,
+                adam_beta1=cfg.adam.beta1
+            )
+            models[cfg.model.feature_net_name] = feature_net
 
         if cfg.loss.adversarial.weight_x > 0:
             convnet = torchreid.models.build_model(
@@ -156,8 +157,10 @@ def make_engine(cfg, datamanager, models, optimizers, schedulers):
             model_names = {
                 'generator': cfg.model.generator_name,
                 'discriminator': cfg.model.discriminator_name,
-                'feature_net': cfg.model.feature_net_name,
+                # 'feature_net': cfg.model.feature_net_name,
             }
+            if cfg.loss.adversarial.weight_nce > 0:
+                model_names['feature_net'] = cfg.model.feature_net_name
             if cfg.loss.adversarial.weight_x > 0:
                 model_names['convnet'] = cfg.model.name
 
