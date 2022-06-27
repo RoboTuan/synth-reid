@@ -18,7 +18,7 @@ class GTA_flatten(Dataset):
         self.data = []
         self.transform = transform
         for img_path in os.listdir(self.root_dir):
-            if img_path[-5:] == '.jpeg':
+            if img_path[-5:] == '.jpeg' or img_path[-4:] == '.png':
                 self.data.append(img_path)
 
     def __len__(self):
@@ -59,7 +59,6 @@ def main(datafolder, newfolder, weights, seed=10):
 
     dataset = GTA_flatten(datafolder, transforms)
     loader = DataLoader(dataset, batch, shuffle=False, drop_last=False)
-
     generator_S2R = Generator()
     load_pretrained_weights(generator_S2R, weights)
     generator_S2R.cuda()
@@ -85,9 +84,9 @@ def main(datafolder, newfolder, weights, seed=10):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--datafolder', type=str, default='/mnt/data2/defonte_data/PersonReid_datasets/fid/gta_flat')
-    parser.add_argument('--newfolder', type=str, default='/mnt/data2/defonte_data/PersonReid_datasets/fid/gta_flat_tra')
+    parser.add_argument('--newfolder', type=str, default='/mnt/data2/defonte_data/PersonReid_datasets/fid/cuhk03_gta_flat_tra_sim')
     parser.add_argument('--weights', type=str, default=str('/home/defonte/PersonReid/synth-reid_adv/log/' +
-                        'adv_nce_resnet_joint_test_12_bottle/generator/model.pth.tar-60'))
+                        'cuhk03_adv_nce_resnet_joint_test_11_bottle/generator/model.pth.tar-60'))
     parser.add_argument('--seed', type=int, default=10)
     args = parser.parse_args()
 

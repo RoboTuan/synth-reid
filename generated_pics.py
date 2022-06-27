@@ -7,9 +7,9 @@ from torchreid.utils import set_random_seed, load_pretrained_weights, resume_fro
 import sys
 
 seed = 10
-generator_path = './log/cuhk03_adv_nce_triplet_joint_test_12/generator/model.pth.tar-60'
-dest_folder = './generated_imgs_cuhk03_idt/'
-set_random_seed(10)
+generator_path = './log/adv_nce_resnet_joint_test_12_bottle/generator/model.pth.tar-60'
+dest_folder = './generated_imgs_market_12/'
+set_random_seed(seed)
 
 datamanager = torchreid.data.ImageDataManager(
     root='/mnt/data2/defonte_data/PersonReid_datasets/',
