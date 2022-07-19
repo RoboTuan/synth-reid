@@ -6,7 +6,7 @@ new_session="N"
 tmux_attach="N"
 test_only="False"
 weights="''"
-rerank=False
+rerank="False"
 while getopts c:g:s:n:a:t:w:r: flag
 do
     case "${flag}" in
