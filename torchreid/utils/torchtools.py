@@ -7,6 +7,12 @@ from functools import partial
 from collections import OrderedDict
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.lines import Line2D
+import wandb
+import torchreid.models
+import sys
 
 from .tools import mkdir_if_missing
 
@@ -181,7 +187,7 @@ def open_all_layers(model):
         p.requires_grad = True
 
 
-def open_specified_layers(model, open_layers):
+def open_specified_layers(model_name, model, open_layers):
     r"""Opens specified layers in model for training while keeping
     other layers frozen.
 
@@ -203,6 +209,10 @@ def open_specified_layers(model, open_layers):
 
     if isinstance(open_layers, str):
         open_layers = [open_layers]
+
+    # bnneck support
+    if model_name == 'bnneck':
+        model = model.base
 
     for layer in open_layers:
         assert hasattr(
@@ -310,3 +320,43 @@ def load_pretrained_weights(model, weight_path):
                 'due to unmatched keys or layer size: {}'.
                 format(discarded_layers)
             )
+
+
+def plot_grad_flow(named_parameters, model_name, n_iter):
+    '''
+    Adapted from: 'https://discuss.pytorch.org/t/check-gradient-flow-in-network/15063/7'
+    Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+
+    Usage: Plug this function in Trainer class after loss.backwards() as
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+    ave_grads = []
+    max_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if(p.requires_grad) and ("bias" not in n):
+            if p.grad is None:
+                print(f"Not printing {model_name} parameters since their gradient is None at {n_iter + 1} iterations")
+                return
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+            max_grads.append(p.grad.abs().max())
+    # fig = plt.figure()
+    # fig.add_subplot(1, 1, 1)
+    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
+    # print(layers)
+    plt.xlim(left=0, right=len(ave_grads))
+    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.legend([Line2D([0], [0], color="c", lw=4),
+                Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+    wandb.log({"chart/" + model_name: wandb.Image(plt)}, step=n_iter + 1)
+    plt.close()

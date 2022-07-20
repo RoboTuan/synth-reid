@@ -11,11 +11,9 @@ from torchvision.transforms import (
 
 class Random2DTranslation(object):
     """Randomly translates the input image with a probability.
-
     Specifically, given a predefined shape (height, width), the input is first
     resized with a factor of 1.125, leading to (height*1.125, width*1.125), then
     a random crop is performed. Such operation is done with a probability.
-
     Args:
         height (int): target image height.
         width (int): target image width.
@@ -274,21 +272,24 @@ def build_transforms(
     transform_tr = []
 
     print('+ resize to {}x{}'.format(height, width))
-    transform_tr += [Resize((height, width), interpolation=3)]
+    transform_tr += [Resize((height, width), interpolation=Image.BILINEAR)]
 
     if 'pad' in transforms:
+        print('+ 10 zero-pandding')
         transform_tr += [Pad(10)]
 
     if 'random_crop' in transforms:
-        # print(
-        #     '+ random crop (enlarge to {}x{} and '
-        #     'crop {}x{})'.format(
-        #         int(round(height * 1.125)), int(round(width * 1.125)), height,
-        #         width
-        #     )
-        # )
-        # transform_tr += [Random2DTranslation(height, width)]
+        print('+ crop {}x{}'.format(height, width))
         transform_tr += [RandomCrop((height, width))]
+    elif 'random_crop_translate' in transforms:
+        print(
+            '+ random crop (enlarge to {}x{} and '
+            'crop {}x{})'.format(
+                int(round(height * 1.125)), int(round(width * 1.125)), height,
+                width
+            )
+        )
+        transform_tr += [Random2DTranslation(height, width)]
 
     if 'random_flip' in transforms:
         print('+ random flip')
@@ -322,7 +323,7 @@ def build_transforms(
     print('+ normalization (mean={}, std={})'.format(norm_mean, norm_std))
 
     transform_te = Compose([
-        Resize((height, width)),
+        Resize((height, width), interpolation=Image.BILINEAR),
         ToTensor(),
         normalize,
     ])

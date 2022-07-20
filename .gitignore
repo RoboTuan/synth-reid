@@ -1,5 +1,13 @@
+# Private
+*.key
+
 # vscode
 .vscode/
+
+# Pictures
+sample_images_while_training/*
+sample_images_while_training1/*
+generated_imgs*/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -138,6 +146,7 @@ dmypy.json
 # ReID
 reid-data/
 log/
+wandb/
 saved-models/
 model-zoo/
 debug*

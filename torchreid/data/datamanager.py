@@ -6,7 +6,6 @@ from torchreid.data.datasets.dataset import Dataset
 from torchreid.data.sampler import build_train_sampler
 from torchreid.data.datasets import init_image_dataset, init_video_dataset
 from torchreid.data.transforms import build_transforms
-import numpy as np
 
 
 class DataManager(object):
@@ -29,6 +28,7 @@ class DataManager(object):
         self,
         sources=None,
         targets=None,
+        seed=10,
         height=256,
         width=128,
         transforms='random_flip',
@@ -40,6 +40,7 @@ class DataManager(object):
         self.targets = targets
         self.height = height
         self.width = width
+        self.seed = seed
 
         if self.sources is None:
             raise ValueError('sources must not be None')
@@ -182,10 +183,14 @@ class ImageDataManager(DataManager):
         verbose=True,
         # add option for validation set
         val=False,
-        relabel=True
+        adversarial=False,
+        relabel=True,
+        seed=10,
+        n_samples=50  # taking only #n_samples images for GTA_synthReid
     ):
 
         super(ImageDataManager, self).__init__(
+            seed=seed,
             sources=sources,
             targets=targets,
             height=height,
@@ -197,8 +202,18 @@ class ImageDataManager(DataManager):
         )
 
         self.verbose = verbose
-        self.val = val
+        self.adversarial = adversarial
+        if self.adversarial is True:
+            self.val = False
+            self.adv_val = val
+            self.val_sources = self.targets
+        else:
+            self.val = val
+            self.adv_val = False
+            self.val_sources = self.sources
         self.relabel = relabel
+        self.n_samples = n_samples
+        self.batch_size_train = batch_size_train
         # print(self.val)
 
         self.trainsets = defaultdict(Dataset)
@@ -207,6 +222,7 @@ class ImageDataManager(DataManager):
         for name in self.sources:
             trainset_ = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_tr,
                 k_tfm=k_tfm,
                 mode='train',
@@ -218,7 +234,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.trainsets[name] = trainset_
             trainset.append(trainset_)
@@ -254,10 +271,12 @@ class ImageDataManager(DataManager):
                 'sources={} and targets={} must not have overlap'.format(self.sources, self.targets)
 
             print('=> Loading train (target) dataset')
+            print('Sampler for this dataset is RandomSampler')
             trainset_t = []
             for name in self.targets:
                 trainset_t_ = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_tr,
                     k_tfm=k_tfm,
                     mode='train',
@@ -268,8 +287,9 @@ class ImageDataManager(DataManager):
                     cuhk03_labeled=cuhk03_labeled,
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
-                    val=self.val,
-                    relabel=self.relabel
+                    val=self.adv_val,
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
                 trainset_t.append(trainset_t_)
             trainset_t = sum(trainset_t)
@@ -278,7 +298,7 @@ class ImageDataManager(DataManager):
                 trainset_t,
                 sampler=build_train_sampler(
                     trainset_t.train,
-                    train_sampler_t,
+                    "RandomSampler",
                     batch_size=batch_size_train,
                     num_instances=num_instances,
                     num_cams=num_cams,
@@ -291,29 +311,30 @@ class ImageDataManager(DataManager):
                 drop_last=True
             )
 
-        if self.val is True:
-            print('=> Loading validataion (source) dataset')
+        if self.val is True or self.adv_val is True:
+            print('=> Loading validataion dataset')
             self.val_loader = {
                 name: {
                     'query': None,
                     'gallery': None
                 }
-                for name in self.sources
+                for name in self.val_sources
             }
             self.val_dataset = {
                 name: {
                     'query': None,
                     'gallery': None
                 }
-                for name in self.sources
+                for name in self.val_sources
             }
-            for name in self.sources:
+            for name in self.val_sources:
                 # build query loader
                 val_queryset = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_te,
                     mode='val_query',
-                    combineall=combineall,
+                    combineall=False,
                     root=root,
                     verbose=self.verbose,
                     split_id=split_id,
@@ -321,7 +342,8 @@ class ImageDataManager(DataManager):
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
                     val=True,
-                    relabel=self.relabel
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
                 # print(val_queryset)
                 self.val_loader[name]['query'] = torch.utils.data.DataLoader(
@@ -336,9 +358,10 @@ class ImageDataManager(DataManager):
                 # build val_gallery loader
                 val_galleryset = init_image_dataset(
                     name,
+                    self.seed,
                     transform=self.transform_te,
                     mode='val_gallery',
-                    combineall=combineall,
+                    combineall=False,
                     verbose=self.verbose,
                     root=root,
                     split_id=split_id,
@@ -346,7 +369,8 @@ class ImageDataManager(DataManager):
                     cuhk03_classic_split=cuhk03_classic_split,
                     market1501_500k=market1501_500k,
                     val=True,
-                    relabel=self.relabel
+                    relabel=self.relabel,
+                    n_samples=self.n_samples
                 )
 
                 self.val_loader[name]['gallery'] = torch.utils.data.DataLoader(
@@ -385,9 +409,10 @@ class ImageDataManager(DataManager):
             # build query loader
             queryset = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='query',
-                combineall=combineall,
+                combineall=False,
                 verbose=self.verbose,
                 root=root,
                 split_id=split_id,
@@ -395,7 +420,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.test_loader[name]['query'] = torch.utils.data.DataLoader(
                 queryset,
@@ -409,9 +435,10 @@ class ImageDataManager(DataManager):
             # build gallery loader
             galleryset = init_image_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='gallery',
-                combineall=combineall,
+                combineall=False,
                 verbose=self.verbose,
                 root=root,
                 split_id=split_id,
@@ -419,7 +446,8 @@ class ImageDataManager(DataManager):
                 cuhk03_classic_split=cuhk03_classic_split,
                 market1501_500k=market1501_500k,
                 val=self.val,
-                relabel=self.relabel
+                relabel=self.relabel,
+                n_samples=self.n_samples
             )
             self.test_loader[name]['gallery'] = torch.utils.data.DataLoader(
                 galleryset,
@@ -532,11 +560,13 @@ class VideoDataManager(DataManager):
         train_sampler='RandomSampler',
         seq_len=15,
         sample_method='evenly',
+        seed=10,
         verbose=True,
         # TODO: add validation and test relabeling for video datasets
     ):
 
         super(VideoDataManager, self).__init__(
+            seed=seed,
             sources=sources,
             targets=targets,
             height=height,
@@ -554,6 +584,7 @@ class VideoDataManager(DataManager):
         for name in self.sources:
             trainset_ = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_tr,
                 mode='train',
                 combineall=combineall,
@@ -607,6 +638,7 @@ class VideoDataManager(DataManager):
             # build query loader
             queryset = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='query',
                 combineall=combineall,
@@ -627,6 +659,7 @@ class VideoDataManager(DataManager):
             # build gallery loader
             galleryset = init_video_dataset(
                 name,
+                self.seed,
                 transform=self.transform_te,
                 mode='gallery',
                 combineall=combineall,

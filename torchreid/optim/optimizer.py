@@ -2,6 +2,7 @@ from __future__ import print_function, absolute_import
 import warnings
 import torch
 import torch.nn as nn
+import sys
 
 from .radam import RAdam
 
@@ -9,6 +10,7 @@ AVAI_OPTIMS = ['adam', 'amsgrad', 'sgd', 'rmsprop', 'radam']
 
 
 def build_optimizer(
+    model_name,
     model,
     optim='adam',
     lr=0.0003,
@@ -21,7 +23,7 @@ def build_optimizer(
     adam_beta2=0.99,
     staged_lr=False,
     new_layers='',
-    base_lr_mult=0.1
+    base_lr_mult=0.1,
 ):
     """A function wrapper for building an optimizer.
 
@@ -69,13 +71,15 @@ def build_optimizer(
                 optim, AVAI_OPTIMS
             )
         )
-
     if not isinstance(model, nn.Module):
         raise TypeError(
             'model given to build_optimizer must be an instance of nn.Module'
         )
 
     if staged_lr:
+        print(f"New layers: {new_layers}")
+        print(f"All other layers have the learning rate multiplied by {base_lr_mult}")
+
         if isinstance(new_layers, str):
             if new_layers is None:
                 warnings.warn(
@@ -90,14 +94,33 @@ def build_optimizer(
         base_layers = []
         new_params = []
 
+        # print(model_name)
+        # support for bnneck
+        if model_name == 'bnneck':
+            model = model.base
+
+        for layer in new_layers:
+            assert hasattr(
+                model, layer
+            ), '"{}" is not an attribute of the model, please provide the correct name'.format(
+                layer
+            )
+
         for name, module in model.named_children():
+            # print(name)
             if name in new_layers:
+                # print(name)
                 new_params += [p for p in module.parameters()]
             else:
                 base_params += [p for p in module.parameters()]
                 base_layers.append(name)
-        
-        # print("yolo")
+        # print()
+        # print(new_params)
+        # print(base_layers)
+        # print(base_params)
+        # sys.exit()
+
+        # print("")
         # print(base_layers, new_params)
 
         param_groups = [

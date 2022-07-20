@@ -215,11 +215,12 @@ class Dataset(object):
         """Shows dataset statistics."""
         pass
 
-    def combine_all(self):
+    def combine_all(self, include_query=False):
         """Combines train, query and gallery in a dataset for training."""
         if self._train_only:
             return
 
+        print("Combining sets of the dataset")
         combined = copy.deepcopy(self.train)
 
         # relabel pids in gallery (query shares the same scope)
@@ -238,7 +239,10 @@ class Dataset(object):
                 pid = pid2label[pid] + self.num_train_pids
                 combined.append((img_path, pid, camid, dsetid))
 
-        _combine_data(self.query)
+        if include_query:
+            _combine_data(self.query)
+        else:
+            print("Combining Training an Gallery sets only (no gallery)")
         _combine_data(self.gallery)
 
         self.train = combined

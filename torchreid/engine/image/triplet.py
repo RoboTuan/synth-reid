@@ -1,9 +1,15 @@
 from __future__ import division, print_function, absolute_import
 
+import torch
+import torch.nn as nn
+import torchvision
+
 from torchreid import metrics
 from torchreid.losses import TripletLoss, CrossEntropyLoss
-
+from torchreid.utils import load_pretrained_weights
+from torchreid.models import Generator
 from ..engine import Engine
+import sys
 
 
 class ImageTripletEngine(Engine):
@@ -62,6 +68,7 @@ class ImageTripletEngine(Engine):
     def __init__(
         self,
         datamanager,
+        model_name,
         model,
         optimizer,
         margin=0.3,
@@ -70,20 +77,38 @@ class ImageTripletEngine(Engine):
         scheduler=None,
         use_gpu=True,
         label_smooth=True,
-        val=False
+        val=False,
+        generator_path=None
     ):
         self.val = val
-        super(ImageTripletEngine, self).__init__(datamanager, self.val, use_gpu)
 
+        super(ImageTripletEngine, self).__init__(datamanager=datamanager,
+                                                 val=self.val,
+                                                 use_gpu=use_gpu)
+
+        self.model_name = model_name
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.generator_path = generator_path
         self.register_model('model', model, optimizer, scheduler)
+
+        if generator_path != '':
+            print("Trasfer dataset learning")
+            self.generator_S2R = Generator()
+            load_pretrained_weights(self.generator_S2R, self.generator_path)
+            # print(self.generator_S2R)
+            self.generator_S2R.cuda()
+            self.generator_S2R.eval()
+            for p in self.generator_S2R.parameters():
+                p.requires_grad = False
 
         assert weight_t >= 0 and weight_x >= 0
         assert weight_t + weight_x > 0
         self.weight_t = weight_t
         self.weight_x = weight_x
+
+        # print("loss wieghts: ", self.weight_t, self.weight_x)
 
         self.criterion_t = TripletLoss(margin=margin)
         self.criterion_x = CrossEntropyLoss(
@@ -98,6 +123,14 @@ class ImageTripletEngine(Engine):
         if self.use_gpu:
             imgs = imgs.cuda()
             pids = pids.cuda()
+
+        # torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/synth.jpg', nrow=8)
+
+        if self.generator_path != '':
+            with torch.no_grad():
+                imgs = self.generator_S2R(imgs)
+        #         torchvision.utils.save_image((imgs.data + 1) / 2.0, './log/prova_transfer6/real.jpg', nrow=8)
+        # sys.exit()
 
         outputs, features = self.model(imgs)
 
@@ -115,7 +148,7 @@ class ImageTripletEngine(Engine):
             loss_summary['loss_x'] = loss_x.item()
             loss_summary['acc'] = metrics.accuracy(outputs, pids)[0].item()
 
-        assert loss_summary
+            assert loss_summary
 
         self.optimizer.zero_grad()
         loss.backward()

@@ -7,13 +7,17 @@ from collections import OrderedDict
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
+import torchvision.utils
+import wandb
+import sys
 
 from torchreid import metrics
 from torchreid.utils import (
     MetricMeter, AverageMeter, re_ranking, open_all_layers, save_checkpoint,
-    open_specified_layers, visualize_ranked_results
+    open_specified_layers, visualize_ranked_results, mkdir_if_missing
 )
 from torchreid.losses import DeepSupervision
+from torchreid.utils.torchtools import plot_grad_flow
 
 
 class Engine(object):
@@ -26,9 +30,20 @@ class Engine(object):
         use_gpu (bool, optional): use gpu. Default is True.
     """
 
-    def __init__(self, datamanager, val=False, use_gpu=True):
+    def __init__(
+            self,
+            datamanager,
+            val=False,
+            lambda_id=1,
+            lambda_ss=1,
+            use_gpu=True,
+            adversarial=False
+    ):
         self.datamanager = datamanager
         self.val = val
+        self.adversarial = adversarial
+        self.lambda_id = lambda_id
+        self.lambda_ss = lambda_ss
         self.train_loader = self.datamanager.train_loader
         self.test_loader = self.datamanager.test_loader
         if self.val:
@@ -38,6 +53,7 @@ class Engine(object):
         self.epoch = 0
 
         self.model = None
+        self.model_name = None
         self.optimizer = None
         self.scheduler = None
 
@@ -80,17 +96,30 @@ class Engine(object):
         names = self.get_model_names()
 
         for name in names:
-            save_checkpoint(
-                {
-                    'state_dict': self._models[name].state_dict(),
-                    'epoch': epoch + 1,
-                    'rank1': rank1,
-                    'optimizer': self._optims[name].state_dict(),
-                    'scheduler': self._scheds[name].state_dict()
-                },
-                osp.join(save_dir, name),
-                is_best=is_best
-            )
+            if self.adversarial:
+                # TODO: vedere che altro salvare per adversarial
+                save_checkpoint(
+                    {
+                        'state_dict': self._models[name].state_dict(),
+                        'epoch': epoch + 1,
+                        'optimizer': self._optims[name].state_dict(),
+                        'scheduler': self._scheds[name].state_dict()
+                    },
+                    osp.join(save_dir, name),
+                    is_best=is_best
+                )
+            else:
+                save_checkpoint(
+                    {
+                        'state_dict': self._models[name].state_dict(),
+                        'epoch': epoch + 1,
+                        'rank1': rank1,
+                        'optimizer': self._optims[name].state_dict(),
+                        'scheduler': self._scheds[name].state_dict()
+                    },
+                    osp.join(save_dir, name),
+                    is_best=is_best
+                )
 
     def set_model_mode(self, mode='train', names=None):
         assert mode in ['train', 'eval', 'test']
@@ -104,8 +133,10 @@ class Engine(object):
 
     def get_current_lr(self, names=None):
         names = self.get_model_names(names)
-        name = names[0]
-        return self._optims[name].param_groups[-1]['lr']
+        lrs = []
+        for name in names:
+            lrs.append((str(name + '_lr: '), self._optims[name].param_groups[-1]['lr']))
+        return lrs
 
     def update_lr(self, names=None):
         names = self.get_model_names(names)
@@ -197,7 +228,8 @@ class Engine(object):
                 use_metric_cuhk03=use_metric_cuhk03,
                 ranks=ranks,
                 rerank=rerank,
-                flip=eval_flip
+                flip=eval_flip,
+                test_only=True
             )
             return
 
@@ -213,13 +245,59 @@ class Engine(object):
             self.train(
                 print_freq=print_freq,
                 fixbase_epoch=fixbase_epoch,
-                open_layers=open_layers
+                open_layers=open_layers,
+                save_dir=save_dir
             )
 
             if (self.epoch + 1) >= start_eval \
                and eval_freq > 0 \
                and (self.epoch + 1) % eval_freq == 0 \
                and (self.epoch + 1) != self.max_epoch:
+                if self.adversarial:
+                    # Don't save rank for adversarial
+                    rank1 = self.test(
+                        dist_metric=dist_metric,
+                        normalize_feature=normalize_feature,
+                        visrank=visrank,
+                        visrank_topk=visrank_topk,
+                        save_dir=save_dir,
+                        use_metric_cuhk03=use_metric_cuhk03,
+                        ranks=ranks,
+                        flip=eval_flip
+                    )
+                    self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=rank1)
+                    # self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
+                else:
+                    rank1 = self.test(
+                        dist_metric=dist_metric,
+                        normalize_feature=normalize_feature,
+                        visrank=visrank,
+                        visrank_topk=visrank_topk,
+                        save_dir=save_dir,
+                        use_metric_cuhk03=use_metric_cuhk03,
+                        ranks=ranks,
+                        flip=eval_flip
+                    )
+                    self.save_model(self.epoch, rank1, save_dir)
+
+        if self.max_epoch > 0:
+            # When adversarial is True, save model without testing
+            if self.adversarial:
+                print('=> Final test')
+                rank1 = self.test(
+                    dist_metric=dist_metric,
+                    normalize_feature=normalize_feature,
+                    visrank=visrank,
+                    visrank_topk=visrank_topk,
+                    save_dir=save_dir,
+                    use_metric_cuhk03=use_metric_cuhk03,
+                    ranks=ranks,
+                    flip=eval_flip
+                )
+                # self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=None)
+                self.save_model(epoch=self.epoch, save_dir=save_dir, rank1=rank1)
+            else:
+                print('=> Final test')
                 rank1 = self.test(
                     dist_metric=dist_metric,
                     normalize_feature=normalize_feature,
@@ -232,27 +310,13 @@ class Engine(object):
                 )
                 self.save_model(self.epoch, rank1, save_dir)
 
-        if self.max_epoch > 0:
-            print('=> Final test')
-            rank1 = self.test(
-                dist_metric=dist_metric,
-                normalize_feature=normalize_feature,
-                visrank=visrank,
-                visrank_topk=visrank_topk,
-                save_dir=save_dir,
-                use_metric_cuhk03=use_metric_cuhk03,
-                ranks=ranks,
-                flip=eval_flip
-            )
-            self.save_model(self.epoch, rank1, save_dir)
-
         elapsed = round(time.time() - time_start)
         elapsed = str(datetime.timedelta(seconds=elapsed))
         print('Elapsed {}'.format(elapsed))
         if self.writer is not None:
             self.writer.close()
 
-    def train(self, print_freq=10, fixbase_epoch=0, open_layers=None):
+    def train(self, print_freq=10, fixbase_epoch=0, open_layers=None, save_dir=None):
         losses = MetricMeter()
         batch_time = AverageMeter()
         data_time = AverageMeter()
@@ -263,13 +327,31 @@ class Engine(object):
             self.epoch, fixbase_epoch, open_layers
         )
 
+        if self.adversarial:
+            train_t_iterator = iter(self.datamanager.train_loader_t)
+
         self.num_batches = len(self.train_loader)
         end = time.time()
         for self.batch_idx, data in enumerate(self.train_loader):
+            self.set_model_mode('train')
+            if self.adversarial:
+                try:
+                    other_data = next(train_t_iterator)
+                except StopIteration:
+                    train_t_iterator = iter(self.datamanager.train_loader_t)
+                    other_data = next(train_t_iterator)
+
             data_time.update(time.time() - end)
-            loss_summary = self.forward_backward(data)
+
+            if self.adversarial:
+                loss_summary, imgs_S, imgs_R, r2r = self.forward_backward_adversarial(self.batch_idx, data, other_data)
+            else:
+                loss_summary = self.forward_backward(data)
+
             batch_time.update(time.time() - end)
             losses.update(loss_summary)
+
+            n_iter = self.epoch * self.num_batches + self.batch_idx
 
             if (self.batch_idx + 1) % print_freq == 0:
                 nb_this_epoch = self.num_batches - (self.batch_idx + 1)
@@ -283,8 +365,7 @@ class Engine(object):
                     'time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     'data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                     'eta {eta}\t'
-                    '{losses}\t'
-                    'lr {lr:.6f}'.format(
+                    '{losses}\t'.format(
                         self.epoch + 1,
                         self.max_epoch,
                         self.batch_idx + 1,
@@ -293,25 +374,84 @@ class Engine(object):
                         data_time=data_time,
                         eta=eta_str,
                         losses=losses,
-                        lr=self.get_current_lr()
-                    )
+                    ),
+                    # modifies to .8f format for smaller learning rates
+                    '\t '.join([str(lr[0] + str("%.8f" % lr[1])) for lr in self.get_current_lr()])
                 )
+                if self.adversarial:
+                    # _ = self.test(
+                    #     dist_metric='euclidean',
+                    #     normalize_feature=False,
+                    #     visrank=False,
+                    #     save_dir=save_dir,
+                    #     use_metric_cuhk03=False,
+                    #     ranks=[1, 5, 10, 20],
+                    #     flip=False
+                    # )
+                    if imgs_S.shape[0] != 1:
+                        img_S = torch.unsqueeze(imgs_S[0], 0)
+                        img_R = torch.unsqueeze(imgs_R[0], 0)
+                        r2r = torch.unsqueeze(r2r[0], 0)
+                    else:
+                        img_S = imgs_S
+                        img_R = imgs_R
+                        r2r = r2r
+
+                    for model_name, model in self.models.items():
+                        plot_grad_flow(model.module.named_parameters(), model_name, n_iter)
+                    # plot_grad_flow(self.models['mlp'].module.named_parameters(), 'mlp', n_iter)
+                    # sys.exit()
+                    with torch.no_grad():
+                        # n_iter = self.epoch * self.num_batches + self.batch_idx
+                        # print(n_iter)
+                        self.set_model_mode('eval')
+                        a_real_test = img_S
+                        b_real_test = img_R
+                        # print(self.models)
+                        # print(self._models)
+                        b_fake_test = self.models['generator'](a_real_test)
+
+                        pic = (torch.cat([
+                            a_real_test, b_fake_test, b_real_test, r2r],
+                            dim=0).data + 1) / 2.0
+                        # pic = torchvision.utils.make_grid(pic, nrow=2)
+
+                        # only len of train loader and not max between
+                        # this and the other dataloader, since we're iterating on this
+                        caption = "Epoch_({})_({}of{}).jpg".format(
+                            self.epoch + 1, self.batch_idx + 1, len(self.train_loader)
+                        )
+                        # tag = "Epoch_({}).jpg".format(
+                        #     self.epoch + 1
+                        # )
+                        wandb.log({"media/images": wandb.Image(pic, caption=caption)}, step=n_iter + 1)
+                        # self.writer.add_image(tag, torchvision.utils.make_grid(pic), global_step=self.epoch)
+                        # save_img_dir = save_dir + '/sample_images_while_training'
+                        # mkdir_if_missing(save_img_dir)
+                        # torchvision.utils.save_image(pic, '%s/%s' % (save_img_dir, caption), nrow=2)
 
             if self.writer is not None:
-                n_iter = self.epoch * self.num_batches + self.batch_idx
+                # n_iter = self.epoch * self.num_batches + self.batch_idx
+                # print(n_iter)
+                wandb.log({'Train_info/Epochs': self.epoch + 1}, step=n_iter + 1)
                 self.writer.add_scalar('Train/time', batch_time.avg, n_iter)
+                wandb.log({'Train_info/time': batch_time.avg}, step=n_iter + 1)
                 self.writer.add_scalar('Train/data', data_time.avg, n_iter)
+                wandb.log({'Train_info/data': data_time.avg}, step=n_iter + 1)
                 for name, meter in losses.meters.items():
                     self.writer.add_scalar('Train/' + name, meter.avg, n_iter)
-                self.writer.add_scalar(
-                    'Train/lr', self.get_current_lr(), n_iter
-                )
+                    wandb.log({'Train_loss/' + name: meter.avg}, step=n_iter + 1)
+                for lr in self.get_current_lr():
+                    self.writer.add_scalar(('Train/lr_' + lr[0]), lr[1], n_iter)
+                    wandb.log({'Train_lr/lr_' + lr[0]: lr[1]}, step=n_iter + 1)
 
             end = time.time()
-
         self.update_lr()
 
     def forward_backward(self, data):
+        raise NotImplementedError
+
+    def forward_backward_adversarial(self, data):
         raise NotImplementedError
 
     def test(
@@ -324,7 +464,8 @@ class Engine(object):
         use_metric_cuhk03=False,
         ranks=[1, 5, 10, 20],
         rerank=False,
-        flip=False
+        flip=False,
+        test_only=False
     ):
         r"""Tests model on target datasets.
 
@@ -341,24 +482,33 @@ class Engine(object):
             Please refer to the source code for more details.
         """
         self.set_model_mode('eval')
-        if self.val:
+        if self.val and not test_only:
             # There is 1 validation dataloader
             targets = list(self.val_loader.keys())
+            self.phase = 'Val'
+        elif test_only and self.val:
+            targets = list(self.test_loader.keys())
+            self.phase = 'Test'
         else:
             targets = list(self.test_loader.keys())
+            self.phase = 'Test'
+        print(self.phase)
 
         for name in targets:
             domain = 'source' if name in self.datamanager.sources else 'target'
             print('##### Evaluating {} ({}) #####'.format(name, domain))
-            if self.val:
+            if self.phase == 'Val':
+                print("Evaluating on validation data")
                 query_loader = self.val_loader[name]['query']
                 # print(len(query_loader))
                 gallery_loader = self.val_loader[name]['gallery']
                 # print(len(gallery_loader))
             else:
+                print("Evaluating on testing data")
                 query_loader = self.test_loader[name]['query']
                 gallery_loader = self.test_loader[name]['gallery']
-            rank1, mAP = self._evaluate(
+
+            cmc, mAP = self._evaluate(
                 dataset_name=name,
                 query_loader=query_loader,
                 gallery_loader=gallery_loader,
@@ -373,9 +523,14 @@ class Engine(object):
                 flip=flip
             )
 
+            rank1 = cmc[0]
             if self.writer is not None:
-                self.writer.add_scalar(f'Test/{name}/rank1', rank1, self.epoch)
-                self.writer.add_scalar(f'Test/{name}/mAP', mAP, self.epoch)
+                n_iter = self.epoch * self.num_batches + self.batch_idx
+                for r in ranks:
+                    wandb.log({f'{self.phase}/{name}/Rank{r}': cmc[r - 1]}, step=n_iter + 1)
+                self.writer.add_scalar(f'{self.phase}/{name}/rank1', rank1, self.epoch)
+                self.writer.add_scalar(f'{self.phase}/{name}/mAP', mAP, self.epoch)
+                wandb.log({f'{self.phase}/{name}/mAP': mAP}, step=n_iter + 1)
 
         return rank1
 
@@ -396,6 +551,9 @@ class Engine(object):
         flip=False
     ):
         batch_time = AverageMeter()
+
+        if flip is True:
+            print("Adding flipped imgs...")
 
         def fliplr(img):
             '''flip horizontal'''
@@ -440,7 +598,6 @@ class Engine(object):
         print('Extracting features from gallery set ...')
         gf, g_pids, g_camids = _feature_extraction(gallery_loader)
         print('Done, obtained {}-by-{} matrix'.format(gf.size(0), gf.size(1)))
-
         print('Speed: {:.4f} sec/batch'.format(batch_time.avg))
 
         if normalize_feature:
@@ -487,17 +644,30 @@ class Engine(object):
                 topk=visrank_topk
             )
 
-        return cmc[0], mAP
+        # return cmc[0], mAP
+        return cmc, mAP
 
     def compute_loss(self, criterion, outputs, targets):
         if isinstance(outputs, (tuple, list)):
             loss = DeepSupervision(criterion, outputs, targets)
         else:
+            # print("self sup targets: ", targets)
+            # print("self sup outputs: ", outputs)
+            # print(type(targets), type(targets[0]))
+            # print(type(outputs), type(outputs[0]))
+            # print(targets[0])
+            # sys.exit()
             loss = criterion(outputs, targets)
         return loss
 
     def extract_features(self, input):
-        return self.model(input)
+        if self.adversarial:
+            features = self.models['generator'](input, feat_extractor=True)
+            global_features = self.models['id_net'](features)
+            return global_features
+
+        else:
+            return self.model(input)
 
     # def get_output_shape(self, image_dim):
     #     return self.model(torch.rand(*(image_dim))).data.shape
@@ -533,6 +703,7 @@ class Engine(object):
                     open_layers, epoch + 1, fixbase_epoch
                 )
             )
-            open_specified_layers(model, open_layers)
+            # print(self.model_name)
+            open_specified_layers(self.model_name, model, open_layers)
         else:
             open_all_layers(model)

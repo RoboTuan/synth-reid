@@ -9,6 +9,8 @@ from .resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # from .backbones.resnet_ibn_a import resnet50_ibn_a
 
 
+# Using specific initialization for this network,
+# otherise use the initialization provided in torchreid.utils
 def weights_init_kaiming(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
@@ -32,19 +34,19 @@ def weights_init_classifier(m):
             nn.init.constant_(m.bias, 0.0)
 
 
-class BNNneck(nn.Module):
+class BNNeck(nn.Module):
     in_planes = 2048
 
     def __init__(self,
                  num_classes,
                  loss,
                  last_stride,
-                 neck,
-                 neck_feat,
+                 neck_feat='after',
+                 neck='bnneck',
                  model_name='resnet50',
                  pretrained=True,
                  **kwargs):
-        super(BNNneck, self).__init__()
+        super(BNNeck, self).__init__()
 
         # self.gap = nn.AdaptiveAvgPool2d(1)
         # self.gap = nn.AdaptiveMaxPool2d(1)
@@ -61,7 +63,7 @@ class BNNneck(nn.Module):
             self.in_planes = 512
             self.base = resnet34(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
         elif model_name == 'resnet50':
-            print(last_stride)
+            # print("last stride: ", last_stride)
             self.base = resnet50(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
         elif model_name == 'resnet101':
             self.base = resnet101(self.num_classes, loss, self.pretrained, last_stride=last_stride, **kwargs)
@@ -163,7 +165,12 @@ class BNNneck(nn.Module):
 
         if self.training:
             cls_score = self.base.classifier(feat)
-            return cls_score, global_feat  # global feature for triplet loss
+            if self.loss == 'softmax':
+                return cls_score
+            elif self.loss == 'triplet':
+                return cls_score, global_feat
+            else:
+                raise KeyError("Unsupported loss: {}".format(self.loss))
         else:
             if self.neck_feat == 'after':
                 # print("Test with feature after BN")

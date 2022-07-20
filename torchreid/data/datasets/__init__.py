@@ -37,12 +37,10 @@ __video_datasets = {
 }
 
 
-def init_image_dataset(name, **kwargs):
+def init_image_dataset(name, seed, **kwargs,):
     """Initializes an image dataset."""
     # Setting random seed
-    set_random_seed()
-    # np.random.seed(10)
-    # random.seed(10)
+    set_random_seed(seed)
 
     avai_datasets = list(__image_datasets.keys())
     if name not in avai_datasets:
@@ -53,9 +51,9 @@ def init_image_dataset(name, **kwargs):
     return __image_datasets[name](**kwargs)
 
 
-def init_video_dataset(name, **kwargs):
+def init_video_dataset(name, seed, **kwargs):
     # Setting random seed
-    set_random_seed()
+    set_random_seed(seed)
 
     """Initializes a video dataset."""
     avai_datasets = list(__video_datasets.keys())

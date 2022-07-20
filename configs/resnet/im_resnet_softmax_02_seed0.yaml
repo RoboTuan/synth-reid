@@ -1,0 +1,43 @@
+model:
+  name: 'resnet50'
+  pretrained: True
+  last_stride: 2
+  # load_weights: 'log/im_resnet50_softmax_val_open[3_4_cls]_multi/model/model.pth.tar-30'
+
+
+data:
+  val: False
+  verbose: True
+  type: 'image'
+  sources: ['gta_synthreid']
+  targets: ['cuhk03']
+  height: 256
+  width: 128
+  combineall: False
+  transforms: ['random_flip', 'pad', 'random_crop']  # Normalization is always included
+  save_dir: 'log/im_resnet_softmax_02_seed0'
+
+loss:
+  name: 'softmax'
+  softmax:
+    label_smooth: False
+
+train:
+  optim: 'adam'
+  lr: 2e-4
+  weight_decay: 5e-4
+  max_epoch: 60
+  batch_size: 32
+  print_freq: 400
+  lr_scheduler: 'multi_step'
+  stepsize: [20, 30, 40]
+  seed: 0
+
+test:
+  eval_flip: True
+  batch_size: 100
+  dist_metric: 'euclidean'
+  normalize_feature: False
+  # evaluate: False
+  eval_freq: 10
+  rerank: False

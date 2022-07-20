@@ -1,5 +1,7 @@
 from __future__ import division, print_function, absolute_import
 
+import torch.nn as nn
+
 from torchreid import metrics
 from torchreid.losses import CrossEntropyLoss
 
@@ -17,6 +19,7 @@ class ImageSoftmaxEngine(Engine):
         scheduler (LRScheduler, optional): if None, no learning rate decay will be performed.
         use_gpu (bool, optional): use gpu. Default is True.
         label_smooth (bool, optional): use label smoothing regularizer. Default is True.
+        val (bool, optional): set to True if a validation set is used from part of the training set.
 
     Examples::
 
@@ -56,16 +59,21 @@ class ImageSoftmaxEngine(Engine):
     def __init__(
         self,
         datamanager,
+        model_name,
         model,
         optimizer,
         scheduler=None,
         use_gpu=True,
         label_smooth=True,
-        val=False
+        val=False,
     ):
         self.val = val
-        super(ImageSoftmaxEngine, self).__init__(datamanager, self.val, use_gpu)
 
+        super(ImageSoftmaxEngine, self).__init__(datamanager=datamanager,
+                                                 val=self.val,
+                                                 use_gpu=use_gpu)
+
+        self.model_name = model_name
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -87,6 +95,7 @@ class ImageSoftmaxEngine(Engine):
         outputs = self.model(imgs)
 
         # print(len(outputs))
+        # print(outputs)
         if isinstance(outputs, (tuple, list)):
             loss = self.compute_loss(self.criterion, outputs[0], pids)
             for i in range(len(outputs) - 1):
@@ -103,8 +112,4 @@ class ImageSoftmaxEngine(Engine):
             'loss': loss.item(),
             'acc': metrics.accuracy(outputs, pids)[0].item()
         }
-
-        # import sys
-        # sys.exit()
-
         return loss_summary

@@ -20,3 +20,5 @@ from .resnet_ibn_a import *
 from .resnet_ibn_b import *
 from .shufflenetv2 import *
 from .inceptionresnetv2 import *
+from .gan import Generator, Discriminator, Id_Net
+from .mlp import MLP

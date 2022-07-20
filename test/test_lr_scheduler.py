@@ -1,10 +1,8 @@
 import sys
 import unittest
 
-import torch
-from torch import nn
-
-sys.path.append('.')
+# sys.path.append('.')
+from torchreid.models import build_model
 from torchreid.optim import build_optimizer, build_lr_scheduler
 from torchreid.utils import set_random_seed
 # from solver.build import make_optimizer
@@ -14,9 +12,19 @@ from torchreid.utils import set_random_seed
 class TestScheduler(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        set_random_seed()
-        cls.model = nn.Linear(10, 10)
+        seed = 10
+        set_random_seed(seed)
+
+        model_name = 'resnet34'
+
+        cls.model = build_model(
+            name=model_name,
+            num_classes=388,
+            loss='softmax',
+            pretrained=False
+        )
         cls.optimizer = build_optimizer(
+            model_name,
             cls.model,
             optim='adam',
             lr=0.01,

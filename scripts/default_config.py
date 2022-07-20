@@ -7,20 +7,29 @@ def get_default_config():
     # model
     cfg.model = CN()
     cfg.model.name = 'resnet50'
+    cfg.model.generator_name = 'generator'
+    cfg.model.discriminator_name = 'discriminator'
+    cfg.model.feature_net_name = 'mlp'
     cfg.model.pretrained = True  # automatically load pretrained model weights if available
     cfg.model.load_weights = ''  # path to model weights
     cfg.model.resume = ''  # path to checkpoint for resume training
+    cfg.model.last_stride = 2  # stride of the last conv layer
+    cfg.model.adversarial = False  # adversarial training
 
     # data
     cfg.data = CN()
     cfg.data.type = 'image'
-    cfg.data.root = 'reid-data'
-    cfg.data.sources = ['market1501']
-    cfg.data.targets = ['market1501']
-    cfg.data.workers = 4  # number of data loading workers
+    cfg.data.root = '/mnt/data2/defonte_data/PersonReid_datasets/'
+    cfg.data.sources = ['gta_synthreid']
+    cfg.data.targets = ['gta_synthreid']
+    # changed form 4 to 8
+    cfg.data.workers = 8  # number of data loading workers
     cfg.data.split_id = 0  # split index
     cfg.data.height = 256  # image height
     cfg.data.width = 128  # image width
+    cfg.data.feature_height = 3  # height of feature map of the identity network (adversarial)
+    cfg.data.feature_width = 3  # width of feature map of the identity network (adversarial)
+    cfg.data.feature_channel = 3  # channels of feature map of the identity network (adversarial)
     cfg.data.combineall = False  # combine train, query and gallery for training
     cfg.data.transforms = ['random_flip']  # data augmentation
     cfg.data.k_tfm = 1  # number of times to apply augmentation to an image independently
@@ -28,6 +37,10 @@ def get_default_config():
     cfg.data.norm_std = [0.229, 0.224, 0.225]  # default is imagenet std
     cfg.data.save_dir = 'log'  # path to save log
     cfg.data.load_train_targets = False  # load training set from target dataset
+    cfg.data.verbose = False  # verbose outputs
+    cfg.data.val = False  # perform validation split
+    cfg.data.relabel = True  # relabel identities from 0 to max identities
+    cfg.data.n_samples = 50  # max number of images per identity for GTA_synthReid
 
     # specific datasets
     cfg.market1501 = CN()
@@ -53,10 +66,22 @@ def get_default_config():
 
     # train
     cfg.train = CN()
+    cfg.train.generator_path = ''  # generator path for style transfer
     cfg.train.optim = 'adam'
+    cfg.train.generator_optim = 'adam'
+    cfg.train.discriminator_optim = 'adam'
+    cfg.train.feature_net_optim = 'adam'
     cfg.train.lr = 0.0003
+    cfg.train.generator_lr = 0.0003
+    cfg.train.discriminator_lr = 0.0003
+    cfg.train.feature_net_lr = 0.0003
     cfg.train.weight_decay = 5e-4
+    cfg.train.generator_weight_decay = 5e-4
+    cfg.train.discriminator_weight_decay = 5e-4
+    cfg.train.feature_net_weight_decay = 5e-4
+    cfg.train.feature_net_nc = 256
     cfg.train.max_epoch = 60
+    cfg.train.epoch_id = 1
     cfg.train.start_epoch = 0
     cfg.train.batch_size = 32
     cfg.train.fixbase_epoch = 0  # number of epochs to fix base layers
@@ -67,10 +92,18 @@ def get_default_config():
     cfg.train.new_layers = ['classifier']  # newly added layers with default lr
     cfg.train.base_lr_mult = 0.1  # learning rate multiplier for base layers
     cfg.train.lr_scheduler = 'single_step'
+    cfg.train.warmup_iters = 10
+    cfg.train.generator_lr_scheduler = 'single_step'
+    cfg.train.discriminator_lr_scheduler = 'single_step'
     cfg.train.stepsize = [20]  # stepsize to decay learning rate
+    cfg.train.generator_stepsize = [20]  # stepsize to decay learning rate for generator
+    cfg.train.discriminator_stepsize = [20]  # stepsize to decay learning rate for discriminator
+    cfg.train.feature_net_stepsize = [20]  # stepsize to decay learning rate for feature net
     cfg.train.gamma = 0.1  # learning rate decay multiplier
+    cfg.train.generator_gamma = 0.1  # learning rate decay multiplier for generator
+    cfg.train.discriminator_gamma = 0.1  # learning rate decay multiplier for discriminator
     cfg.train.print_freq = 20  # print frequency
-    cfg.train.seed = 1  # random seed
+    cfg.train.seed = 10  # random seed
 
     # optimizer
     cfg.sgd = CN()
@@ -91,7 +124,20 @@ def get_default_config():
     cfg.loss.triplet = CN()
     cfg.loss.triplet.margin = 0.3  # distance margin
     cfg.loss.triplet.weight_t = 1.  # weight to balance hard triplet loss
-    cfg.loss.triplet.weight_x = 0.  # weight to balance cross entropy loss
+    cfg.loss.triplet.weight_x = 1.  # weight to balance cross entropy loss
+    cfg.loss.adversarial = CN()
+    cfg.loss.adversarial.weight_nce = 0.5  # weight to balance nce loss
+    cfg.loss.adversarial.weight_idt = 0.5  # weight to balance identity loss
+    cfg.loss.adversarial.weight_gen = 1.  # weight to balance gnerator loss
+    cfg.loss.adversarial.weight_dis = 0.5  # weight to balance discriminator losses
+    cfg.loss.adversarial.weight_sim = 0.  # weight to balance feature similarity loss
+    cfg.loss.adversarial.weight_x = 1.  # weight to balance cross entropy loss
+    cfg.loss.adversarial.weight_t = 0.  # weight to balance triplet loss
+    cfg.loss.adversarial.guide_gen = False  # use updates of the convnet to guide the generator
+    cfg.loss.adversarial.sim_type_loss = 'feat_match'  # type of similarity loss
+    cfg.loss.adversarial.nce_layers = [0, 2, 3, 4, 8]  # generator layers for nce loss
+    cfg.loss.adversarial.dis_layers = [1, 2, 3, 4]  # discriminator layers for feature similarity loss
+    cfg.loss.adversarial.num_patches = 256  # number of patches for nce loss
 
     # test
     cfg.test = CN()
@@ -105,6 +151,7 @@ def get_default_config():
     cfg.test.rerank = False  # use person re-ranking
     cfg.test.visrank = False  # visualize ranked results (only available when cfg.test.evaluate=True)
     cfg.test.visrank_topk = 10  # top-k ranks to visualize
+    cfg.test.eval_flip = False  # Flip image during evaluation
 
     return cfg
 
@@ -136,6 +183,12 @@ def imagedata_kwargs(cfg):
         'cuhk03_labeled': cfg.cuhk03.labeled_images,
         'cuhk03_classic_split': cfg.cuhk03.classic_split,
         'market1501_500k': cfg.market1501.use_500k_distractors,
+        'verbose': cfg.data.verbose,
+        'val': cfg.data.val,
+        'adversarial': cfg.model.adversarial,
+        'relabel': cfg.data.relabel,
+        'n_samples': cfg.data.n_samples,
+        'seed': cfg.train.seed
     }
 
 
@@ -161,7 +214,8 @@ def videodata_kwargs(cfg):
         'train_sampler': cfg.sampler.train_sampler,
         # video dataset specific
         'seq_len': cfg.video.seq_len,
-        'sample_method': cfg.video.sample_method
+        'sample_method': cfg.video.sample_method,
+        'verbose': cfg.data.verbose,
     }
 
 
@@ -178,7 +232,35 @@ def optimizer_kwargs(cfg):
         'adam_beta2': cfg.adam.beta2,
         'staged_lr': cfg.train.staged_lr,
         'new_layers': cfg.train.new_layers,
-        'base_lr_mult': cfg.train.base_lr_mult
+        'base_lr_mult': cfg.train.base_lr_mult,
+    }
+
+
+def generator_optimizer_kwargs(cfg):
+    return {
+        'optim': cfg.train.generator_optim,
+        'lr': cfg.train.generator_lr,
+        'weight_decay': cfg.train.weight_decay,
+        'momentum': cfg.sgd.momentum,
+        'sgd_dampening': cfg.sgd.dampening,
+        'sgd_nesterov': cfg.sgd.nesterov,
+        'rmsprop_alpha': cfg.rmsprop.alpha,
+        'adam_beta1': cfg.adam.beta1,
+        'adam_beta2': cfg.adam.beta2,
+    }
+
+
+def discriminator_optimizer_kwargs(cfg):
+    return {
+        'optim': cfg.train.discriminator_optim,
+        'lr': cfg.train.discriminator_lr,
+        'weight_decay': cfg.train.weight_decay,
+        'momentum': cfg.sgd.momentum,
+        'sgd_dampening': cfg.sgd.dampening,
+        'sgd_nesterov': cfg.sgd.nesterov,
+        'rmsprop_alpha': cfg.rmsprop.alpha,
+        'adam_beta1': cfg.adam.beta1,
+        'adam_beta2': cfg.adam.beta2,
     }
 
 
@@ -187,6 +269,26 @@ def lr_scheduler_kwargs(cfg):
         'lr_scheduler': cfg.train.lr_scheduler,
         'stepsize': cfg.train.stepsize,
         'gamma': cfg.train.gamma,
+        'max_epoch': cfg.train.max_epoch,
+        'warmup_iters': cfg.train.warmup_iters
+
+    }
+
+
+def generator_lr_scheduler_kwargs(cfg):
+    return {
+        'lr_scheduler': cfg.train.generator_lr_scheduler,
+        'stepsize': cfg.train.generator_stepsize,
+        'gamma': cfg.train.generator_gamma,
+        'max_epoch': cfg.train.max_epoch
+    }
+
+
+def discriminator_lr_scheduler_kwargs(cfg):
+    return {
+        'lr_scheduler': cfg.train.discriminator_lr_scheduler,
+        'stepsize': cfg.train.discriminator_stepsize,
+        'gamma': cfg.train.discriminator_gamma,
         'max_epoch': cfg.train.max_epoch
     }
 
@@ -208,5 +310,6 @@ def engine_run_kwargs(cfg):
         'visrank_topk': cfg.test.visrank_topk,
         'use_metric_cuhk03': cfg.cuhk03.use_metric_cuhk03,
         'ranks': cfg.test.ranks,
-        'rerank': cfg.test.rerank
+        'rerank': cfg.test.rerank,
+        'eval_flip': cfg.test.eval_flip
     }
