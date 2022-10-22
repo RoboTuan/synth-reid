@@ -23,11 +23,19 @@ However, this is not enough to produce images that are more similar to the targe
 
 
 ## Relationship preservation
+We adopted CUT to guide the generative process instead of solutions that employ some kind of cycle consistency, avoiding bijective mappings. Intuitively, this method asks corresponding patches of the input and output images to be similar after the translation (see image below). The patches are simply the output feature vectors along the channel dimension of a given encoder's layer *l* (receptive field arithmetic). These feature vectors are then further processed by smaller multilayer perceptrons (*H* in image) Then we just perform a patch classification. This process is repeated along different layers of the generator's encoder. 
+
+![encoder-decoder](https://github.com/RoboTuan/synth-reid/blob/main/images/Patches.svg)
+
 
 ## Discriminative learning
+We still need to explain how we integrated the re-identificatoin task with image translation. One option would be to train a network for re-identification on the translated images after having translated the whle source data. However, this would add another training stage and thus slow the entire process. We instead processed with a Resnet the features coming from the last layer of the generator's encoder. Theese feature are responsible for the translation and hold some information about the source identities. They are not yet specialized to discriminate among different pedestrians. For this reason, we simply trained the Resnet with cross-entropy loss for classification on the source idetities using as input features with target-related information. 
+
+![encoder-decoder](https://github.com/RoboTuan/synth-reid/blob/main/images/ReID_net.svg)
 
 
 # Results
+spiegare i 2 tipi di risultati e come viene usata la rete perf infrerenza
 ## Quantitative results
 ## Qualitatiive results
 
