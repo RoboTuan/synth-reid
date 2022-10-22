@@ -7,6 +7,10 @@ The objective was to generalize from our dataset [GTASynthReid](https://github.c
 ![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/GTASynthReid.png)
 
 
+# Person Re-Identification
+In this task we want to match the same pedestrain that was captured across multiple camera views. This is usually done with real data by training on a portion of the available identities and testing on the remaining ones. For the evaluation we have to extract a feature vector for all query and gallery images with our learned model. Then, for each query we rank by similarity all the gallery images and evaluate the ranking with metrics such as CMC and MaP. It has been shown that testing on a different datset lead to poor results. Recent methods adopt source-to-target techniques that brdige the gap between two or more dataset. However, collecting data for this kind of task is error-prone, time-consuming and has brought to light ethical concerns. Synthetic datasets are helpful in these areas although they introduct the complexity of synth-to-real adaptation. We created a dataset with the videogame GTAV and experimented with generative methods for image translation.  
+We adapted to real-world dataset improving the performance of a direct transfer baseline and some earler adaptation methods. We were also able to generate images with a style closer to the target one.
+
 
 # Architecture
 Our network is based on CUT and includes the domain mapping, relationship preservation and discriminative modules. It has a single GAN since it does not need cycle consistency. Discriminative learning is embedded in the image translation process
@@ -60,6 +64,10 @@ We wanted to measure whether our generated images would at least feel more simil
 In the following picture there are some examples of translated pedetrians to the three real-world datasets (Market, Duke, CUHK03).
 
 ![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/Translation_examples.svg)
+
+
+# Future directions
+Recent works obtained better performance by using thousands of synthetic pedestrians. One could try to add more characters to GTAV and see whether this would improve our results. Another important direction is the disentanglement between pose and appearance with cycle consistency that has led to better results for generative methods. However, such models are heavy in memory and thus more research is needed to develop lighter solutions.
 
 
 # References
