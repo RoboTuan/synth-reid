@@ -7,7 +7,7 @@ Synthetic-to-Real Domain Transfer with Joint Image Translation and Discriminativ
 This is my master thesis project for the M.Sc. degree in Data Science and Engineering at Politecnico di torino. It extends my previous [internship](https://github.com/RoboTuan/GTASynthReid) as both works were completed at the Links Foundation. The code is based on [this](https://github.com/KaiyangZhou/deep-person-reid) framework.
 The objective was to generalize from our dataset [GTASynthReid](https://github.com/RoboTuan/GTASynthReid) (examples in image below) to real-world person re-identification data using generative methods. We employed the *contrastive unpaired translation* (CUT) framework for image translation with joint discriminative learning for synth-to-real adaptation.
 
-![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/GTASynthReid.png)
+![translations](https://github.com/RoboTuan/GTASynthReid/blob/main/Images/GTASynthReid.png)
 
 
 # Person Re-Identification
