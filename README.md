@@ -2,11 +2,10 @@
 Synthetic-to-Real Domain Transfer with Joint Image Translation and Discriminative Learning for Pedestrian Re-Identification.
 
 This is my master thesis project for the M.Sc. degree in Data Science and Engineering at Politecnico di torino. It extends my previous [internship](https://github.com/RoboTuan/GTASynthReid) as both works were completed at the Links Foundation. The code is based on [this](https://github.com/KaiyangZhou/deep-person-reid) framework.
-The objective was to generalize from our dataset [GTASynthReid](https://github.com/RoboTuan/GTASynthReid) to real-world person re-identification data using generative methods. We employed the *contrastive unpaired translation* (CUT) framework for image translation with joint discriminative learning for synth-to-real adaptation.
+The objective was to generalize from our dataset [GTASynthReid](https://github.com/RoboTuan/GTASynthReid) (examples in image below) to real-world person re-identification data using generative methods. We employed the *contrastive unpaired translation* (CUT) framework for image translation with joint discriminative learning for synth-to-real adaptation.
 
-In the following picture there are some examples of translated pedetrians to three different real-world datasets (Market, Duke, CUHK03).
+![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/GTASynthReid.png)
 
-![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/Translation_examples.svg)
 
 
 # Architecture
@@ -35,9 +34,32 @@ We still need to explain how we integrated the re-identificatoin task with image
 
 
 # Results
-spiegare i 2 tipi di risultati e come viene usata la rete perf infrerenza
+For the inference stage we just need to pass the test images into the encoder and re-identification network to extract the feature vectors needed fo the ranking. We evaluated the quality of both the re-identificatoin and translation.
+
+
 ## Quantitative results
-## Qualitatiive results
+We compared our method with similar works (both real-to-real and synth-to-real adaptation) improving some of the results obtained by cyclegans. The most recent approaces that use cycle consistecy or far mmore training images achieve better results that ours. In the table below we report the performance by means of CMC (rank 1) and MaP on the Market dataset in the following image translation settings: GTASynthReid->Market, GTASynthReid->Duke and GTASynthReid->CHUK03. The baseline is a ResNet trained for direct transfer on the source identities. For additional results, comparisons and ablatoin studies check chapter *5.2* of my [thesis](https://github.com/RoboTuan/synth-reid/blob/main/Master%20Thesis.pdf).
+
+|Translation|MaP|R1|
+|---------------------|----|----|
+|Baseline|23.3|39.4|
+|GTASynthReid->Market|**42.6**|**61.2**|
+|GTASynthReid->Duke|40.7|59.5|
+|GTASynthReid->CHUK03|41.6|60.0|
+
+
+## Qualitative results
+We wanted to measure whether our generated images would at least feel more similar to the target ones by means of style. To do so, we measured the Fréchet Inception Distance before and after the translation for each target dataset, as we can see from the table below.
+
+|Translation|Target|FID before|FID after|
+|---------------------|----|----|----|
+|GTASynthReid-to-Market|Market|45.14|**24.29**
+|GTASynthReid-to-Duke|Duke|50.44|**19.53**|
+|GTASynthReid-to-CUHK03|CUHK03|62.23|**31.54**|
+
+In the following picture there are some examples of translated pedetrians to the three real-world datasets (Market, Duke, CUHK03).
+
+![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/Translation_examples.svg)
 
 
 # References
