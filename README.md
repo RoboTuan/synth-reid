@@ -1,4 +1,7 @@
 # Synth-ReID
+
+![translations](https://github.com/RoboTuan/synth-reid/blob/main/images/Overview.svg)
+
 Synthetic-to-Real Domain Transfer with Joint Image Translation and Discriminative Learning for Pedestrian Re-Identification.
 
 This is my master thesis project for the M.Sc. degree in Data Science and Engineering at Politecnico di torino. It extends my previous [internship](https://github.com/RoboTuan/GTASynthReid) as both works were completed at the Links Foundation. The code is based on [this](https://github.com/KaiyangZhou/deep-person-reid) framework.
